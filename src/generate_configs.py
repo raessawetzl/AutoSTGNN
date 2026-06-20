@@ -4,7 +4,7 @@ if __name__ == "__main__":
     cs = get_shared_config_space()
 
     print("Hyperparameters defined:")
-    for hp in cs.get_hyperparameters():
+    for hp in list(cs.values()):
         print(f"  {hp}")
 
     print("\n5 random sample configs:")
