@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 
@@ -19,9 +20,15 @@ import pandas as pd
 
 WEIGHT_THRESHOLD = 0.1 ##########################
 
+# Resolve paths relative to this script's own location, not the terminal's
+# working directory, so it works no matter where it's run from (VS Code's
+# run button, a terminal in this folder, a terminal at the project root, etc.)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "..", "data")
+
 DATASET_CONFIGS = [
-    {"name": "PEMS04", "csv_path": "PEMS04.csv", "num_sensors": 307, "output_path": "PEMS04_adjacency.npz"},
-    {"name": "PEMS08", "csv_path": "PEMS08.csv", "num_sensors": 170, "output_path": "PEMS08_adjacency.npz"},
+    {"name": "PEMS04", "csv_path": os.path.join(DATA_DIR, "PEMS04.csv"), "num_sensors": 307, "output_path": os.path.join(DATA_DIR, "PEMS04_adjacency.npz")},
+    {"name": "PEMS08", "csv_path": os.path.join(DATA_DIR, "PEMS08.csv"), "num_sensors": 170, "output_path": os.path.join(DATA_DIR, "PEMS08_adjacency.npz")},
 ]
 
 
