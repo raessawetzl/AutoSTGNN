@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 # Configuration: 
@@ -17,9 +18,15 @@ TRAIN_RATIO = 0.7
 VAL_RATIO = 0.2
 TEST_RATIO = 0.1
 
+# Resolve paths relative to this script's own location, not the terminal's
+# working directory, so it works no matter where it's run from (VS Code's
+# run button, a terminal in this folder, a terminal at the project root, etc.)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "..", "data")
+
 DATASET_CONFIGS = [
-    {"name": "PEMS04", "input_path": "PEMS04.npz", "output_path": "PEMS04_processed.npz"},
-    {"name": "PEMS08", "input_path": "PEMS08.npz", "output_path": "PEMS08_processed.npz"},
+    {"name": "PEMS04", "input_path": os.path.join(DATA_DIR, "PEMS04.npz"), "output_path": os.path.join(DATA_DIR, "PEMS04_processed.npz")},
+    {"name": "PEMS08", "input_path": os.path.join(DATA_DIR, "PEMS08.npz"), "output_path": os.path.join(DATA_DIR, "PEMS08_processed.npz")},
 ]
 
 
