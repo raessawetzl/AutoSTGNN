@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+from pathlib import Path
 
 # Configuration
 #
@@ -11,18 +12,18 @@ from torch.utils.data import TensorDataset, DataLoader
 WINDOW = 12
 HORIZON = 12
 BATCH_SIZE = 64
+BASE_DIR = Path(__file__).resolve().parents[1]
 
 DATASET_PATHS = {
     "PEMS04": {
-        "processed_path": "PEMS04_processed.npz",
-        "adjacency_path": "PEMS04_adjacency.npz",
+        "processed_path": BASE_DIR / "data" / "PEMS04_processed.npz",
+        "adjacency_path": BASE_DIR / "data" / "PEMS04_adjacency.npz",
     },
     "PEMS08": {
-        "processed_path": "PEMS08_processed.npz",
-        "adjacency_path": "PEMS08_adjacency.npz",
+        "processed_path": BASE_DIR / "data" / "PEMS08_processed.npz",
+        "adjacency_path": BASE_DIR / "data" / "PEMS08_adjacency.npz",
     },
 }
-
 
 def add_window_horizon(flow_split, window, horizon):
     """
