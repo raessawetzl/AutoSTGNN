@@ -14,12 +14,12 @@ BATCH_SIZE = 64
 
 DATASET_PATHS = {
     "PEMS04": {
-        "processed_path": "PEMS04_processed.npz",
-        "adjacency_path": "PEMS04_adjacency.npz",
+        "processed_path": "data/PEMS04_processed.npz",
+        "adjacency_path": "data/PEMS04_adjacency.npz",
     },
     "PEMS08": {
-        "processed_path": "PEMS08_processed.npz",
-        "adjacency_path": "PEMS08_adjacency.npz",
+        "processed_path": "data/PEMS08_processed.npz",
+        "adjacency_path": "data/PEMS08_adjacency.npz",
     },
 }
 
