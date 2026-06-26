@@ -20,8 +20,8 @@ import pandas as pd
 WEIGHT_THRESHOLD = 0.1 ##########################
 
 DATASET_CONFIGS = [
-    {"name": "PEMS04", "csv_path": "PEMS04.csv", "num_sensors": 307, "output_path": "PEMS04_adjacency.npz"},
-    {"name": "PEMS08", "csv_path": "PEMS08.csv", "num_sensors": 170, "output_path": "PEMS08_adjacency.npz"},
+    {"name": "PEMS04", "csv_path": "data/PEMS04.csv", "num_sensors": 307, "output_path": "data/PEMS04_adjacency.npz"},
+    {"name": "PEMS08", "csv_path": "data/PEMS08.csv", "num_sensors": 170, "output_path": "data/PEMS08_adjacency.npz"},
 ]
 
 

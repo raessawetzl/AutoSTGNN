@@ -18,8 +18,8 @@ VAL_RATIO = 0.2
 TEST_RATIO = 0.1
 
 DATASET_CONFIGS = [
-    {"name": "PEMS04", "input_path": "PEMS04.npz", "output_path": "PEMS04_processed.npz"},
-    {"name": "PEMS08", "input_path": "PEMS08.npz", "output_path": "PEMS08_processed.npz"},
+    {"name": "PEMS04", "input_path": "data/PEMS04.npz", "output_path": "data/PEMS04_processed.npz"},
+    {"name": "PEMS08", "input_path": "data/PEMS08.npz", "output_path": "data/PEMS08_processed.npz"},
 ]
 
 
