@@ -18,9 +18,7 @@ from graph_utils import get_laplacian_tensor
 from metrics import compute_metrics
 from search_space import get_stgcn_config_space
 
-# ---------------------------------------------------------------------------
-# Settings — edit these before running
-# ---------------------------------------------------------------------------
+# settings
 
 DATASET_NAME = "PEMS04"       # "PEMS04" or "PEMS08"
 MODEL_NAME   = "STGCN"        # used for logging and output paths
@@ -32,19 +30,12 @@ SEED         = 42
 OUTPUT_DIR   = Path(__file__).resolve().parent / "bohb_results"
 WANDB_PROJECT = "AutoSTGNN-BOHB"
 
-# ---------------------------------------------------------------------------
-# Device
-# ---------------------------------------------------------------------------
+# device
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
 
-# ---------------------------------------------------------------------------
-# Pre-load data and adjacency matrix once — shared across all trials
-# ---------------------------------------------------------------------------
-# We load outside the target function so that every BOHB trial does not
-# reload from disk. Only batch_size varies the loader, so we rebuild that
-# inside the target function (it is cheap).
+# pre-load data and adjacency matrix  — shared across all trials
 
 _train_loader_cache = {}   # keyed by batch_size
 _val_loader   = None
@@ -59,7 +50,7 @@ def _ensure_data_loaded(batch_size: int):
     global _val_loader, _test_loader, _mean, _std, _adj_mx
 
     if _adj_mx is None:
-        # Load with a dummy batch size to get val/test loaders and adj
+        # load with a dummy batch size to get val/test loaders and adj
         _, _val_loader, _test_loader, _mean, _std, _adj_mx = get_dataloaders(
             DATASET_NAME, batch_size=64
         )
@@ -78,9 +69,7 @@ def _get_lk(K: int) -> torch.Tensor:
     return _Lk_cache[K]
 
 
-# ---------------------------------------------------------------------------
-# Target function — called by SMAC for every configuration it wants to try
-# ---------------------------------------------------------------------------
+# target function — called by SMAC for every configuration it wants to try
 
 def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
     """
@@ -102,11 +91,11 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
         Validation MAE on the current dataset.
     """
 
-    # Reproducibility for this trial
+    # reproducibility for this trial
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    # Unpack hyperparameters from config
+    # unpack hyperparameters from config
     lr           = config["learning_rate"]
     num_layers   = config["num_layers"]
     hidden_units = config["hidden_units"]
@@ -115,14 +104,14 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
     weight_decay = config["weight_decay"]
     K            = config["K_cheb"]
 
-    # Ensure data is loaded for this batch_size
+    # ensure data is loaded for this batch_size
     _ensure_data_loaded(batch_size)
     train_loader = _train_loader_cache[batch_size]
     Lk = _get_lk(K)
 
     num_sensors = _adj_mx.shape[0]
 
-    # Build model
+    # build model
     model = STGCN(
         num_sensors=num_sensors,
         num_layers=num_layers,
@@ -159,11 +148,11 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
         reinit=True,
     )
 
-    # Training loop
+    # training loop
     best_val_mae = float("inf")
 
     for epoch in range(int(budget)):
-        # --- Train ---
+        # train
         model.train()
         train_losses = []
         for x_batch, y_batch in train_loader:
@@ -176,7 +165,7 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
             optimizer.step()
             train_losses.append(loss.item())
 
-        # --- Validate ---
+        # validate 
         model.eval()
         val_losses = []
         with torch.no_grad():
@@ -210,9 +199,7 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
     return best_val_mae
 
 
-# ---------------------------------------------------------------------------
 # BOHB setup and run
-# ---------------------------------------------------------------------------
 
 def run_bohb():
     """Configures and runs BOHB via SMAC3. Saves the best config to disk."""
@@ -228,12 +215,12 @@ def run_bohb():
         deterministic=True,       # one seed per config — set False for noisy objectives
         n_trials=N_TRIALS,
         seed=SEED,
-        # HyperBand budget is in terms of the `budget` argument to train_stgcn
+        # hyperBand budget is in terms of the `budget` argument to train_stgcn
         min_budget=MIN_BUDGET,
         max_budget=MAX_BUDGET,
     )
 
-    # HyperBand intensifier — this is what makes it BOHB (Bayesian + HyperBand)
+    # hyperBand intensifier — this is what makes it BOHB (Bayesian + HyperBand)
     intensifier = Hyperband(
         scenario,
         incumbent_selection="highest_budget",  # compare configs at max budget
@@ -254,9 +241,7 @@ def run_bohb():
 
     incumbent = smac.optimize()
 
-    # ---------------------------------------------------------------------------
-    # Final evaluation of the best configuration on the test set
-    # ---------------------------------------------------------------------------
+    # final evaluation of the best configuration on the test set
 
     print("\n" + "="*60)
     print("BOHB complete. Evaluating best configuration on test set...")
@@ -265,7 +250,7 @@ def run_bohb():
     for key, val in incumbent.items():
         print(f"  {key}: {val}")
 
-    # Retrain from scratch on train+val with best config at full budget
+    # retrain from scratch on train+val with best config at full budget
     _ensure_data_loaded(incumbent["batch_size"])
     Lk = _get_lk(incumbent["K_cheb"])
     num_sensors = _adj_mx.shape[0]
@@ -299,7 +284,7 @@ def run_bohb():
             loss_fn(pred, y_batch).backward()
             optimizer.step()
 
-    # Test evaluation
+    # test evaluation
     model.eval()
     all_preds, all_targets = [], []
     with torch.no_grad():
@@ -319,7 +304,7 @@ def run_bohb():
     print(f"  RMSE: {metrics['RMSE']:.4f}")
     print(f"  MAPE: {metrics['MAPE']:.2f}%")
 
-    # Save results summary to disk
+    # save results summary to disk
     results_path = OUTPUT_DIR / f"bohb_{MODEL_NAME}_{DATASET_NAME}_results.txt"
     with open(results_path, "w") as f:
         f.write(f"BOHB Results — {MODEL_NAME} on {DATASET_NAME}\n")
@@ -339,13 +324,10 @@ def run_bohb():
 
     return incumbent, metrics
 
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+# entry point
 
 if __name__ == "__main__":
-    # Initialise W&B (will prompt login if not already authenticated)
+    # initialise W&B (will prompt login if not already authenticated)
     wandb.login()
 
     incumbent, metrics = run_bohb()
