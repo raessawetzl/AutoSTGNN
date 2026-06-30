@@ -20,6 +20,20 @@ python src/train_stgcn.py
 python src/random_search_stgcn.py
 ```
 
+**step 4 — run BOHB search (Bayesian Optimization + HyperBand)**
+```bash
+python src/bohb_runner.py
+```
+Runs a SMAC3-based BOHB search over the hyperparameter space defined below, using HyperBand to allocate training epochs adaptively across configurations. Trials are logged to Weights & Biases (offline mode by default — run `wandb sync` afterwards to upload). The best configuration found is retrained on the full budget and evaluated on the test set, with results saved to `src/bohb_results/bohb_STGCN_<DATASET_NAME>_results.txt`.
+
+Key settings (in `bohb_runner.py`):
+| Setting | Description |
+|---|---|
+| `DATASET_NAME` | `"PEMS04"` or `"PEMS08"` |
+| `N_TRIALS` | Total number of configurations evaluated |
+| `MIN_BUDGET` / `MAX_BUDGET` | Min/max epochs HyperBand allocates per trial |
+
+> Note: this is compute-intensive — submit via `sbatch`.
 ---
 
 ## Hyperparameter Search Space

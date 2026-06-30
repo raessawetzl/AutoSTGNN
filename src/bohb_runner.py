@@ -20,12 +20,12 @@ from search_space import get_stgcn_config_space
 
 # settings
 
-DATASET_NAME = "PEMS04"       # "PEMS04" or "PEMS08"
+DATASET_NAME = "PEMS08"       # "PEMS04" or "PEMS08"
 MODEL_NAME   = "STGCN"        # used for logging and output paths
-N_TRIALS     = 3             # total BOHB configurations to evaluate
-EPOCHS       = 2             # epochs per trial (SMAC controls budget via fidelity)
-MIN_BUDGET   = 1              # minimum epochs HyperBand allocates to a trial
-MAX_BUDGET   = 2         # maximum epochs HyperBand allocates to a trial
+N_TRIALS     = 50             # total BOHB configurations to evaluate
+EPOCHS       = 50             # epochs per trial (SMAC controls budget via fidelity)
+MIN_BUDGET   = 5              # minimum epochs HyperBand allocates to a trial
+MAX_BUDGET   = EPOCHS         # maximum epochs HyperBand allocates to a trial
 SEED         = 42
 OUTPUT_DIR   = Path(__file__).resolve().parent / "bohb_results"
 WANDB_PROJECT = "AutoSTGNN-BOHB"
@@ -96,13 +96,13 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
     np.random.seed(seed)
 
     # unpack hyperparameters from config
-    lr           = config["learning_rate"]
-    num_layers   = config["num_layers"]
-    hidden_units = config["hidden_units"]
-    dropout      = config["dropout"]
-    batch_size   = config["batch_size"]
-    weight_decay = config["weight_decay"]
-    K            = config["K_cheb"]
+    lr           = float(config["learning_rate"])
+    num_layers   = int(config["num_layers"])
+    hidden_units = int(config["hidden_units"])
+    dropout      = float(config["dropout"])
+    batch_size   = int(config["batch_size"])
+    weight_decay = float(config["weight_decay"])
+    K            = int(config["K_cheb"])
 
     # ensure data is loaded for this batch_size
     _ensure_data_loaded(batch_size)
@@ -143,9 +143,10 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
             "budget_epochs": budget,
             "seed": seed,
             "dataset": DATASET_NAME,
-            "model": MODEL_NAME,
+            "model": MODEL_NAME,   
         },
-        reinit=True,
+        reinit="finish_previous",
+        mode="offline",
     )
 
     # training loop
@@ -329,5 +330,4 @@ def run_bohb():
 if __name__ == "__main__":
     # initialise W&B (will prompt login if not already authenticated)
     wandb.login()
-
-    incumbent, metrics = run_bohb()
+    run_bohb()
