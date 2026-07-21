@@ -7,10 +7,12 @@ import torch.nn as nn
 from models.dcrnn_model import DCRNNModel
 
 
-# These are the default hyperparameters for the baseline run
-# DEHB will later search over these to find better configurations
+# Trains DCRNN on both datasets using fixed default hyperparameters
+# This is the baseline run — it represents what DCRNN achieves without
+# any hyperparameter tuning. DEHB and random search are expected to
+# improve on these results
 
-SEQ_LEN = 12   # number of historical timesteps fed in (1 hour at 5-min intervals)
+SEQ_LEN = 12   # he number of historical timesteps fed into the model as input
 HORIZON = 3  # number of future timesteps to predict (15 minutes)
 INPUT_DIM = 1  # only flow is used
 OUTPUT_DIM = 1   # only flow is predicted
@@ -52,8 +54,12 @@ def setup_logger():
 
 def load_data(data_path):
     """
-    Loads the preprocessed train/val/test arrays and the
-    normalization stats saved by preprocess.py
+    Loads the preprocessed train, val and test arrays produced by
+    preprocess.py, along with the mean and std used during normalisation
+
+    The mean and std are needed later to convert predictions back to
+    real vehicle counts when computing MAE, RMSE and MAPE
+
     """
     data_file = np.load(data_path)
     train = data_file["train"]
@@ -66,8 +72,10 @@ def load_data(data_path):
 
 def load_adjacency(adj_path):
     """
-    Loads the adjacency matrix saved by build_adjacency.py
-    and converts it to a torch tensor
+    Loads the adjacency matrix produced by build_adjacency.py and
+    converts it to a PyTorch tensor so the DCRNN model can use it
+    during training to model spatial relationships between sensors
+
     """
     adj_file = np.load(adj_path)
     adj_matrix = adj_file["adjacency"].astype(np.float32)
@@ -76,13 +84,10 @@ def load_adjacency(adj_path):
 
 def create_windows(data, seq_len, horizon):
     """
-    Slides a window over the time axis to produce (input, target) pairs.
-    Each input is seq_len timesteps of all sensors.
-    Each target is the single timestep horizon steps ahead.
-
-    Returns:
-        inputs: (num_windows, seq_len, num_nodes)
-        targets: (num_windows, horizon, num_nodes)
+    Creates (input, target) pairs from the time series. The model uses
+    the input timesteps to predict the target timesteps, which are actual
+    recorded sensor readings
+    
     """
     num_timesteps = data.shape[0]
     inputs = []
@@ -103,8 +108,12 @@ def create_windows(data, seq_len, horizon):
 
 def make_batches(inputs, targets, batch_size):
     """
-    Yields (input_batch, target_batch) tuples of size batch_size,
-    shuffled at the start of each call
+    Takes the (input, target) pairs from create_windows() and groups them
+    into smaller batches so the model does not process all examples at once,
+    which would use too much memory. Examples are shuffled randomly before
+    batching so the model sees them in a different order each epoch, helping
+    it learn more generalised patterns
+     
     """
     num_samples = inputs.shape[0]
     indices = np.random.permutation(num_samples)
@@ -119,8 +128,9 @@ def make_batches(inputs, targets, batch_size):
 
 def prepare_model_input(batch):
     """
-    Reshapes a batch from (batch_size, seq_len, num_nodes) to
-    (seq_len, batch_size, num_nodes * input_dim) as DCRNNModel expects
+    Reshapes a batch from (batch_size, seq_len, num_nodes) to the shape
+    DCRNNModel expects: (seq_len, batch_size, num_nodes * input_dim)
+
     """
     batch_size, seq_len, num_nodes = batch.shape
     return batch.permute(1, 0, 2).reshape(seq_len, batch_size, num_nodes * INPUT_DIM)
@@ -128,8 +138,10 @@ def prepare_model_input(batch):
 
 def compute_metrics(predictions, targets, mean, std):
     """
-    Converts normalized predictions and targets back to real vehicle counts,
-    then computes MAE, RMSE, and MAPE
+    Converts normalised predictions and targets back to real vehicle counts
+    using the mean and std saved during preprocessing, then computes three
+    error metrics: MAE, RMSE, and MAPE
+    
     """
     predictions_real = predictions * std + mean
     targets_real = targets * std + mean
@@ -144,7 +156,13 @@ def compute_metrics(predictions, targets, mean, std):
 
 
 def train_one_epoch(model, optimizer, criterion, inputs, targets, batches_seen):
-    """Runs one full pass over the training data and returns the average loss"""
+    """
+    Runs one full pass over the training batches. For each batch the model
+     makes predictions, calculates the loss (difference between predictions
+    and actual values), and updates its weights to reduce that loss
+    Returns the average loss across all batches for that epoch
+    
+    """
     model.train()
     total_loss = 0.0
     num_batches = 0
@@ -172,7 +190,12 @@ def train_one_epoch(model, optimizer, criterion, inputs, targets, batches_seen):
 
 
 def evaluate(model, inputs, targets, mean, std):
-    """Runs the model on val or test data and returns MAE, RMSE, MAPE"""
+    """
+    Runs the model on val or test data with fixed weights from training.
+    No weight updates happen here — the model just makes predictions on
+    unseen data and returns the MAE, RMSE and MAPE error scores
+
+    """
     model.eval()
     all_predictions = []
     all_targets = []
@@ -197,6 +220,13 @@ def evaluate(model, inputs, targets, mean, std):
 
 
 def train_dataset(dataset_config, logger):
+    """
+    Pipeline manager for one dataset. It calls all functions in sequence:
+    loads data and adjacency matrix, creates windows, builds the model,
+    trains for MAX_EPOCHS, and evaluates the best model on test data
+    Returns the final MAE, RMSE and MAPE
+
+    """
     dataset_name = dataset_config["name"]
     num_nodes = dataset_config["num_nodes"]
 
@@ -302,3 +332,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
