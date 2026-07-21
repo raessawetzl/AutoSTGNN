@@ -103,6 +103,10 @@ def get_dataloaders(dataset_name, window=WINDOW, horizon=HORIZON, batch_size=BAT
     std = float(processed_data["std"])
     processed_file.close()
 
+    train_data = (train_data - mean) / std
+    val_data   = (val_data   - mean) / std
+    test_data  = (test_data  - mean) / std
+
     x_train, y_train = add_window_horizon(train_data, window, horizon)
     x_val, y_val = add_window_horizon(val_data, window, horizon)
     x_test, y_test = add_window_horizon(test_data, window, horizon)

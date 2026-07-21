@@ -24,7 +24,7 @@ MODEL_CONFIG = {
 }
 
 TRAIN_CONFIG = {
-    "epochs":       100,
+    "epochs":       1,
     "lr":           0.001,
     "weight_decay": 0.0001,
     "clip_grad":    5.0,   # gradient clipping max norm
@@ -61,7 +61,6 @@ def masked_rmse(preds, labels, mask_value=0.0):
 
 
 def masked_mape(preds, labels, mask_value=0.0):
-    # small epsilon on denominator to avoid division near zero even after masking
     mask = labels != mask_value
     mape = torch.abs((preds - labels) / (labels + 1e-8))
     return 100.0 * (mape * mask).sum() / mask.sum()
@@ -81,16 +80,19 @@ def train_one_epoch(model, loader, optimizer, mean, std, clip_grad, device):
         y_batch = y_batch.to(device)   # (B, T, N, 1)
 
         optimizer.zero_grad()
-        preds = model(x_batch)         # (B, horizon, N, 1)
+        # original AGCRN forward: (source, targets, teacher_forcing_ratio)
+        # teacher_forcing_ratio=0 at inference, kept as default during training
+        preds = model(x_batch, y_batch)    # (B, horizon, N, 1)
 
-        # de-normalize both before computing loss so the loss is in
-        # real units (vehicles/5-min) and comparable across runs
-        preds_real = inverse_transform(preds, mean, std)
+        preds_real  = inverse_transform(preds,   mean, std)
         labels_real = inverse_transform(y_batch, mean, std)
 
         loss = masked_mae(preds_real, labels_real)
         loss.backward()
-
+    for name, param in model.named_parameters():
+        if param.grad is not None and torch.isnan(param.grad).any():
+            print("NaN gradient in:", name)
+            break
         nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
         optimizer.step()
 
@@ -106,24 +108,25 @@ def train_one_epoch(model, loader, optimizer, mean, std, clip_grad, device):
 
 def evaluate(model, loader, mean, std, device):
     model.eval()
-    all_preds = []
+    all_preds  = []
     all_labels = []
 
     with torch.no_grad():
         for x_batch, y_batch in loader:
             x_batch = x_batch.to(device)
             y_batch = y_batch.to(device)
-            preds = model(x_batch)
+            # teacher_forcing_ratio=0 at evaluation — no ground truth fed in
+            preds = model(x_batch, y_batch, teacher_forcing_ratio=0)
             all_preds.append(preds)
             all_labels.append(y_batch)
 
-    all_preds = torch.cat(all_preds, dim=0)
+    all_preds  = torch.cat(all_preds,  dim=0)
     all_labels = torch.cat(all_labels, dim=0)
 
-    preds_real = inverse_transform(all_preds, mean, std)
+    preds_real  = inverse_transform(all_preds,  mean, std)
     labels_real = inverse_transform(all_labels, mean, std)
 
-    mae  = masked_mae(preds_real, labels_real).item()
+    mae  = masked_mae(preds_real,  labels_real).item()
     rmse = masked_rmse(preds_real, labels_real).item()
     mape = masked_mape(preds_real, labels_real).item()
 
@@ -154,23 +157,22 @@ def main():
 
     # --- data ---
     train_loader, val_loader, test_loader, mean, std, adj_mx = get_dataloaders(dataset_name)
-    # adj_mx is loaded but not used by AGCRN — its adjacency is learned
-    # internally via node embeddings. Pass it to DCRNN/STGCN training
-    # scripts when you write those.
     mean = torch.tensor(mean, dtype=torch.float32).to(device)
     std  = torch.tensor(std,  dtype=torch.float32).to(device)
 
-    # --- model ---
-    model = AGCRN(
-        num_node   = num_node,
-        input_dim  = MODEL_CONFIG["input_dim"],
-        hidden_dim = MODEL_CONFIG["hidden_dim"],
-        output_dim = MODEL_CONFIG["output_dim"],
-        embed_dim  = MODEL_CONFIG["embed_dim"],
-        cheb_k     = MODEL_CONFIG["cheb_k"],
-        horizon    = MODEL_CONFIG["horizon"],
-        num_layers = MODEL_CONFIG["num_layers"],
-    ).to(device)
+    # --- model args --- build a Namespace matching what the original AGCRN expects
+    model_args = argparse.Namespace(
+        num_nodes     = num_node,
+        input_dim     = MODEL_CONFIG["input_dim"],
+        output_dim    = MODEL_CONFIG["output_dim"],
+        embed_dim     = MODEL_CONFIG["embed_dim"],
+        cheb_k        = MODEL_CONFIG["cheb_k"],
+        horizon       = MODEL_CONFIG["horizon"],
+        num_layers    = MODEL_CONFIG["num_layers"],
+        rnn_units     = MODEL_CONFIG["hidden_dim"],
+        default_graph = True,   # original repo flag; True = use adaptive graph only
+    )
+    model = AGCRN(model_args).to(device)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Model parameters: " + str(num_params))
@@ -183,8 +185,8 @@ def main():
     )
 
     # --- training loop with early stopping ---
-    best_val_mae = float("inf")
-    best_epoch   = 0
+    best_val_mae  = float("inf")
+    best_epoch    = 0
     epochs_since_improvement = 0
     best_model_path = dataset_name + "_best_model.pt"
 
@@ -203,7 +205,6 @@ def main():
             )
         )
 
-        # save best model
         if val_mae < best_val_mae:
             best_val_mae = val_mae
             best_epoch   = epoch
@@ -212,7 +213,6 @@ def main():
         else:
             epochs_since_improvement += 1
 
-        # early stopping
         if epochs_since_improvement >= TRAIN_CONFIG["patience"]:
             print("")
             print("Early stopping at epoch " + str(epoch) +

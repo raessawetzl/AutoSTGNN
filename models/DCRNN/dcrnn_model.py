@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from models.dcrnn_cell import DCGRUCell
+from models.DCRNN.dcrnn_cell import DCGRUCell
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

@@ -6,7 +6,7 @@
 import numpy as np
 import torch
 
-from lib import utils
+from src import dcrnn_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
