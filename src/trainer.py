@@ -8,8 +8,16 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
+from graph_utils import compute_chebyshev
 
 from dataloader import get_dataloaders
+
+
+# ---------------------------------------------------------------------------
+# Chebyshev polynomial precomputation for STGCN
+# ---------------------------------------------------------------------------
+
+
 
 # ---------------------------------------------------------------------------
 # Model registry — add new models here
@@ -29,6 +37,7 @@ def load_model(model_name, args, adj_mx, device):
             default_graph = True,
         )
         model = AGCRN(model_args)
+        args.Lk = None
 
     elif model_name == "DCRNN":
         from models.DCRNN.dcrnn_model import DCRNNModel
@@ -40,22 +49,23 @@ def load_model(model_name, args, adj_mx, device):
             num_layers = args.num_layers,
             adj_mx     = adj_mx,
         )
+        args.Lk = None
 
     elif model_name == "STGCN":
         from models.STGCN.stgcn import STGCN
         model = STGCN(
-            num_nodes  = args.num_nodes,
-            input_dim  = args.input_dim,
-            output_dim = args.output_dim,
-            horizon    = args.horizon,
-            adj_mx     = adj_mx,
+            num_sensors  = args.num_nodes,
+            num_layers   = args.num_layers,
+            K            = args.K,
+            horizon      = args.horizon,
+            hidden_units = args.rnn_units,
+            dropout      = args.dropout,
         )
+        args.Lk = compute_chebyshev(adj_mx, args.K, device)
 
     else:
         raise ValueError("Unknown model: {}. Choose from AGCRN, DCRNN, STGCN".format(model_name))
 
-    # initialise all parameters — critical for numerical stability across
-    # PyTorch versions (this is what the original AGCRN repo does in Run.py)
     for p in model.parameters():
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
@@ -94,11 +104,13 @@ def masked_mape(preds, labels, mask_value=0.0):
 # Forward pass — handles models with different signatures
 # AGCRN: model(x, y, teacher_forcing_ratio)
 # DCRNN: model(x, y, teacher_forcing_ratio)
-# STGCN: model(x)
+# STGCN: model(x, Lk)
 # ---------------------------------------------------------------------------
-def forward(model, model_name, x, y, teacher_forcing_ratio=1.0):
+def forward(model, model_name, x, y, teacher_forcing_ratio=1.0, Lk=None):
     if model_name in ("AGCRN", "DCRNN"):
         return model(x, y, teacher_forcing_ratio=teacher_forcing_ratio)
+    elif model_name == "STGCN":
+        return model(x, Lk)
     else:
         return model(x)
 
@@ -106,7 +118,7 @@ def forward(model, model_name, x, y, teacher_forcing_ratio=1.0):
 # ---------------------------------------------------------------------------
 # One epoch of training
 # ---------------------------------------------------------------------------
-def train_one_epoch(model, model_name, loader, optimizer, mean, std, clip_grad, device):
+def train_one_epoch(model, model_name, loader, optimizer, mean, std, clip_grad, device, Lk=None):
     model.train()
     total_loss = 0.0
     num_batches = 0
@@ -116,7 +128,8 @@ def train_one_epoch(model, model_name, loader, optimizer, mean, std, clip_grad, 
         y_batch = y_batch.to(device)
 
         optimizer.zero_grad()
-        preds = forward(model, model_name, x_batch, y_batch, teacher_forcing_ratio=1.0)
+        preds = forward(model, model_name, x_batch, y_batch,
+                        teacher_forcing_ratio=1.0, Lk=Lk)
 
         preds_real  = inverse_transform(preds,   mean, std)
         labels_real = inverse_transform(y_batch, mean, std)
@@ -137,7 +150,7 @@ def train_one_epoch(model, model_name, loader, optimizer, mean, std, clip_grad, 
 # ---------------------------------------------------------------------------
 # Evaluation
 # ---------------------------------------------------------------------------
-def evaluate(model, model_name, loader, mean, std, device):
+def evaluate(model, model_name, loader, mean, std, device, Lk=None):
     model.eval()
     all_preds  = []
     all_labels = []
@@ -146,7 +159,8 @@ def evaluate(model, model_name, loader, mean, std, device):
         for x_batch, y_batch in loader:
             x_batch = x_batch.to(device)
             y_batch = y_batch.to(device)
-            preds = forward(model, model_name, x_batch, y_batch, teacher_forcing_ratio=0.0)
+            preds = forward(model, model_name, x_batch, y_batch,
+                            teacher_forcing_ratio=0.0, Lk=Lk)
             all_preds.append(preds)
             all_labels.append(y_batch)
 
@@ -169,25 +183,28 @@ def evaluate(model, model_name, loader, mean, std, device):
 def main():
     parser = argparse.ArgumentParser()
     # experiment
-    parser.add_argument("--dataset",    type=str, required=True, choices=["PEMS04", "PEMS08"])
-    parser.add_argument("--model",      type=str, required=True, choices=["AGCRN", "DCRNN", "STGCN"])
+    parser.add_argument("--dataset",      type=str,   required=True, choices=["PEMS04", "PEMS08"])
+    parser.add_argument("--model",        type=str,   required=True, choices=["AGCRN", "DCRNN", "STGCN"])
     # data
-    parser.add_argument("--input_dim",  type=int, default=1)
-    parser.add_argument("--output_dim", type=int, default=1)
-    parser.add_argument("--horizon",    type=int, default=12)
+    parser.add_argument("--input_dim",    type=int,   default=1)
+    parser.add_argument("--output_dim",   type=int,   default=1)
+    parser.add_argument("--horizon",      type=int,   default=12)
     # shared model
-    parser.add_argument("--num_layers", type=int, default=2)
+    parser.add_argument("--num_layers",   type=int,   default=2)
+    parser.add_argument("--rnn_units",    type=int,   default=64)
     # AGCRN specific
-    parser.add_argument("--embed_dim",  type=int, default=10)
-    parser.add_argument("--cheb_k",     type=int, default=2)
-    parser.add_argument("--rnn_units",  type=int, default=64)
+    parser.add_argument("--embed_dim",    type=int,   default=10)
+    parser.add_argument("--cheb_k",       type=int,   default=2)
+    # STGCN specific
+    parser.add_argument("--K",            type=int,   default=3)
+    parser.add_argument("--dropout",      type=float, default=0.1)
     # training
-    parser.add_argument("--epochs",     type=int,   default=100)
-    parser.add_argument("--lr",         type=float, default=0.001)
+    parser.add_argument("--epochs",       type=int,   default=100)
+    parser.add_argument("--lr",           type=float, default=0.001)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
-    parser.add_argument("--clip_grad",  type=float, default=5.0)
-    parser.add_argument("--patience",   type=int,   default=15)
-    parser.add_argument("--batch_size", type=int,   default=64)
+    parser.add_argument("--clip_grad",    type=float, default=5.0)
+    parser.add_argument("--patience",     type=int,   default=15)
+    parser.add_argument("--batch_size",   type=int,   default=64)
 
     args = parser.parse_args()
 
@@ -220,20 +237,22 @@ def main():
     )
 
     # --- training loop ---
-    best_val_mae  = float("inf")
-    best_epoch    = 0
+    best_val_mae      = float("inf")
+    best_epoch        = 0
     epochs_no_improve = 0
-    best_model_path = "{}_{}_{}_best.pt".format(args.dataset, args.model, 
-                        time.strftime("%Y%m%d_%H%M%S"))
+    best_model_path   = "{}_{}_{}_best.pt".format(
+        args.dataset, args.model, time.strftime("%Y%m%d_%H%M%S")
+    )
     best_state = None
+    Lk = getattr(args, "Lk", None)
 
     for epoch in range(1, args.epochs + 1):
         train_loss = train_one_epoch(
             model, args.model, train_loader, optimizer,
-            mean, std, args.clip_grad, device
+            mean, std, args.clip_grad, device, Lk=Lk
         )
         val_mae, val_rmse, val_mape = evaluate(
-            model, args.model, val_loader, mean, std, device
+            model, args.model, val_loader, mean, std, device, Lk=Lk
         )
 
         print("Epoch {:03d} | Train MAE: {:.4f} | Val MAE: {:.4f} | "
@@ -241,10 +260,10 @@ def main():
               epoch, train_loss, val_mae, val_rmse, val_mape))
 
         if val_mae < best_val_mae:
-            best_val_mae = val_mae
-            best_epoch   = epoch
+            best_val_mae      = val_mae
+            best_epoch        = epoch
             epochs_no_improve = 0
-            best_state = copy.deepcopy(model.state_dict())
+            best_state        = copy.deepcopy(model.state_dict())
             torch.save(best_state, best_model_path)
         else:
             epochs_no_improve += 1
@@ -260,7 +279,7 @@ def main():
 
     model.load_state_dict(torch.load(best_model_path, map_location=device))
     test_mae, test_rmse, test_mape = evaluate(
-        model, args.model, test_loader, mean, std, device
+        model, args.model, test_loader, mean, std, device, Lk=Lk
     )
 
     print("--- Test Results ({} | {}) ---".format(args.dataset, args.model))
