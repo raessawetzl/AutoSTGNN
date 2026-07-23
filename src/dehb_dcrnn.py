@@ -19,8 +19,8 @@ from search_space import get_shared_config_space
 # uses multi-fidelity optimisation to focus compute on promising configurations
 # and discard poor ones early, making it more efficient than random search
 
-MIN_FIDELITY = 3    # minimum epochs per trial. DEHB starts here for cheap evaluations
-MAX_FIDELITY = 100  # maximum epochs per trial (full evaluation) , only promising configurations reach this
+MIN_FIDELITY = 2   # minimum epochs per trial. DEHB starts here for cheap evaluations
+MAX_FIDELITY = 3  # maximum epochs per trial (full evaluation) , only promising configurations reach this
 
 
 RUNTIME_SECONDS = 3600 # total time/ wallclock budget for the DEHB search per dataset
@@ -38,16 +38,16 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, '..', 'results')
 
 DATASET_CONFIGS = [
     {
-        "name": "PEMS04",
-        "data_path": os.path.join(DATA_DIR, "PEMS04_processed.npz"),
-        "adj_path": os.path.join(DATA_DIR, "PEMS04_adjacency.npz"),
-        "num_nodes": 307,
+        "name": "METR-LA",
+        "data_path": os.path.join(DATA_DIR, "METRLA_processed.npz"),
+        "adj_path": os.path.join(DATA_DIR, "METRLA_adjacency.npz"),
+        "num_nodes": 207,
     },
     {
-        "name": "PEMS08",
-        "data_path": os.path.join(DATA_DIR, "PEMS08_processed.npz"),
-        "adj_path": os.path.join(DATA_DIR, "PEMS08_adjacency.npz"),
-        "num_nodes": 170,
+        "name": "PEMS-Bay",
+        "data_path": os.path.join(DATA_DIR, "PEMSBAY_processed.npz"),
+        "adj_path": os.path.join(DATA_DIR, "PEMSBAY_adjacency.npz"),
+        "num_nodes": 325,
     },
 ]
 

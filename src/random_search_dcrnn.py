@@ -18,11 +18,11 @@ from search_space import get_shared_config_space
 # same time budget?
 
 # Number of random configurations to try. Each one is a full training run.
-# On the HPC cluster this is feasible; on a laptop reduce to 2-3 for testing.
+
 NUM_TRIALS = 20
 
-# Number of epochs per trial. Keep low for testing, use 100 for real results.
-EPOCHS_PER_TRIAL = 100
+# Number of epochs per trial. Keep low for testing, use 100 for real results
+EPOCHS_PER_TRIAL = 2
 
 SEQ_LEN = 12        # number of historical timesteps fed into the model (1 hour)
 HORIZON = 3         # number of future timesteps to predict (15 minutes)
@@ -39,15 +39,15 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, '..', 'results')
 DATASET_CONFIGS = [
     {
         "name": "PEMS04",
-        "data_path": os.path.join(DATA_DIR, "PEMS04_processed.npz"),
-        "adj_path": os.path.join(DATA_DIR, "PEMS04_adjacency.npz"),
+        "data_path": os.path.join(DATA_DIR, "METRLA_processed.npz"),
+        "adj_path": os.path.join(DATA_DIR, "METRLA_adjacency.npz"),
         "num_nodes": 307,
     },
     {
         "name": "PEMS08",
-        "data_path": os.path.join(DATA_DIR, "PEMS08_processed.npz"),
-        "adj_path": os.path.join(DATA_DIR, "PEMS08_adjacency.npz"),
-        "num_nodes": 170,
+        "data_path": os.path.join(DATA_DIR, "PEMSBAY_processed.npz"),
+        "adj_path": os.path.join(DATA_DIR, "PEMSBAY_adjacency.npz"),
+        "num_nodes": 325,
     },
 ]
 
@@ -56,9 +56,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_dcrnn_config_space():
     """
-    DCRNN search space = shared hyperparameters + max_diffusion_step.
-    max_diffusion_step controls how many hops the diffusion process
-    spreads across the graph — more steps = wider spatial context.
+    ConfigSpace defines the range of values each hyperparameter can be
+    tuned to. The shared space covers hyperparameters common to all three
+    models: learning rate, hidden units, num layers, dropout, batch size
+    and weight decay. This function extends that shared space by adding
+    max_diffusion_step, which is specific to DCRNN
+
     """
     cs = get_shared_config_space()
     cs.add(
@@ -81,7 +84,7 @@ def load_data(data_path):
     Loads the preprocessed train, val and test arrays produced by
     preprocess.py, along with the mean and std used during normalisation.
     The mean and std are needed later to convert predictions back to
-    real vehicle counts when computing MAE, RMSE and MAPE.
+    real vehicle counts when computing MAE, RMSE and MAPE
     """
     data_file = np.load(data_path)
     return (data_file["train"], data_file["val"], data_file["test"],
@@ -92,7 +95,7 @@ def load_adjacency(adj_path):
     """
     Loads the adjacency matrix produced by build_adjacency.py and
     converts it to a PyTorch tensor so the DCRNN model can use it
-    during training to model spatial relationships between sensors.
+    during training to model spatial relationships between sensors
     """
     adj = np.load(adj_path)["adjacency"].astype(np.float32)
     return torch.tensor(adj, device=device)
@@ -102,7 +105,8 @@ def create_windows(data, seq_len, horizon):
     """
     Creates (input, target) pairs from the time series. The model uses
     the input timesteps to predict the target timesteps, which are actual
-    recorded sensor readings.
+    recorded sensor readings
+
     """
     inputs, targets = [], []
     i = 0
@@ -119,7 +123,8 @@ def make_batches(inputs, targets, batch_size):
     into smaller batches so the model does not process all examples at once,
     which would use too much memory. Examples are shuffled randomly before
     batching so the model sees them in a different order each epoch, helping
-    it learn more generalised patterns.
+    it learn more generalised patterns
+
     """
     indices = np.random.permutation(inputs.shape[0])
     i = 0
@@ -135,7 +140,7 @@ def make_batches(inputs, targets, batch_size):
 def prepare_model_input(batch):
     """
     Reshapes a batch from (batch_size, seq_len, num_nodes) to the shape
-    DCRNNModel expects: (seq_len, batch_size, num_nodes * input_dim).
+    DCRNNModel expects: (seq_len, batch_size, num_nodes * input_dim)
     """
     batch_size, seq_len, num_nodes = batch.shape
     return batch.permute(1, 0, 2).reshape(seq_len, batch_size, num_nodes * INPUT_DIM)
@@ -146,7 +151,8 @@ def compute_metrics(predictions, targets, mean, std):
     Converts normalised predictions and targets back to real vehicle counts
     using the mean and std saved during preprocessing, then computes three
     error metrics: MAE, RMSE, and MAPE. Sensors with fewer than 10 vehicles
-    are excluded from MAPE to avoid division by near-zero values.
+    are excluded from MAPE to avoid division by near-zero values
+
     """
     predictions_real = predictions * std + mean
     targets_real = targets * std + mean
@@ -159,10 +165,11 @@ def compute_metrics(predictions, targets, mean, std):
 
 def run_trial(config, dataset_config, logger, trial_num):
     """
-    Trains DCRNN with one randomly sampled hyperparameter configuration
-    for EPOCHS_PER_TRIAL epochs. Evaluates on validation after each epoch
-    and saves the best model weights. Returns the best validation MAE and
-    the final test MAE, RMSE and MAPE from the best saved model.
+    Takes one randomly sampled configuration from ConfigSpace and trains
+    DCRNN with those hyperparameter values for EPOCHS_PER_TRIAL epochs.
+    Evaluates on validation after each epoch, saves the best model weights,
+    then evaluates the best model on test data and returns the results
+
     """
     num_nodes = dataset_config["num_nodes"]
     batch_size = int(config["batch_size"])
@@ -258,7 +265,7 @@ def run_random_search(dataset_config):
     Pipeline manager for random search on one dataset. Samples NUM_TRIALS
     random configurations from the search space, trains DCRNN with each,
     and records the best configuration found based on validation MAE.
-    Saves a JSON log of all trials to the results directory.
+    Saves a JSON log of all trials to the results directory
     """
     dataset_name = dataset_config["name"]
     logger = setup_logger()

@@ -30,16 +30,16 @@ DATA_DIR = os.path.join(SCRIPT_DIR, '..', 'data')
 
 DATASET_CONFIGS = [
     {
-        "name": "PEMS04",
-        "data_path": os.path.join(DATA_DIR, "PEMS04_processed.npz"),
-        "adj_path": os.path.join(DATA_DIR, "PEMS04_adjacency.npz"),
-        "num_nodes": 307,
+        "name": "METR-LA",
+        "data_path": os.path.join(DATA_DIR, "METRLA_processed.npz"),
+        "adj_path": os.path.join(DATA_DIR, "METRLA_adjacency.npz"),
+        "num_nodes": 207,
     },
     {
-        "name": "PEMS08",
-        "data_path": os.path.join(DATA_DIR, "PEMS08_processed.npz"),
-        "adj_path": os.path.join(DATA_DIR, "PEMS08_adjacency.npz"),
-        "num_nodes": 170,
+        "name": "PEMS-Bay",
+        "data_path": os.path.join(DATA_DIR, "PEMSBAY_processed.npz"),
+        "adj_path": os.path.join(DATA_DIR, "PEMSBAY_adjacency.npz"),
+        "num_nodes": 325,
     },
 ]
 
