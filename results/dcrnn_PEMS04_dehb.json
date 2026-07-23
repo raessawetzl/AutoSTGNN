@@ -1,0 +1,17 @@
+[
+  {
+    "trial": 1,
+    "fidelity": 3,
+    "config": {
+      "batch_size": 32,
+      "dropout": 0.438730581234,
+      "hidden_units": 233,
+      "learning_rate": 0.0065863145738,
+      "max_diffusion_step": 1,
+      "num_layers": 2,
+      "weight_decay": 1.93562309e-05
+    },
+    "val_mae": 22.352375030517578,
+    "cost": 941898.9503159523
+  }
+]

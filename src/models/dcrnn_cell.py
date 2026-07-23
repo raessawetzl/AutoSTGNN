@@ -54,7 +54,6 @@ class DCGRUCell(torch.nn.Module):
 
         super().__init__()
         self._activation = torch.tanh if nonlinearity == 'tanh' else torch.relu
-        # support other nonlinearities up here?
         self._num_nodes = num_nodes
         self._num_units = num_units
         self._max_diffusion_step = max_diffusion_step
@@ -78,12 +77,12 @@ class DCGRUCell(torch.nn.Module):
 
     @staticmethod
     def _build_sparse_matrix(L):
+        # Converted to dense to avoid sparse tensor segfaults on CPU nodes
         L = L.tocoo()
-        indices = np.column_stack((L.row, L.col))
-        # this is to ensure row-major ordering to equal torch.sparse.sparse_reorder(L)
-        indices = indices[np.lexsort((indices[:, 0], indices[:, 1]))]
-        L = torch.sparse_coo_tensor(indices.T, L.data, L.shape, device=device)
-        return L
+        L_dense = np.zeros(L.shape, dtype=np.float32)
+        for i in range(len(L.data)):
+            L_dense[L.row[i], L.col[i]] = L.data[i]
+        return torch.FloatTensor(L_dense).to(device)
 
     def forward(self, inputs, hx):
         """Gated recurrent unit (GRU) with Graph Convolution.
@@ -145,15 +144,16 @@ class DCGRUCell(torch.nn.Module):
             pass
         else:
             for support in self._supports:
-                x1 = torch.sparse.mm(support, x0)
+                # Using torch.mm instead of torch.sparse.mm since supports are now dense
+                x1 = torch.mm(support, x0)
                 x = self._concat(x, x1)
 
                 for k in range(2, self._max_diffusion_step + 1):
-                    x2 = 2 * torch.sparse.mm(support, x1) - x0
+                    x2 = 2 * torch.mm(support, x1) - x0
                     x = self._concat(x, x2)
                     x1, x0 = x2, x1
 
-        num_matrices = len(self._supports) * self._max_diffusion_step + 1  # Adds for x itself.
+        num_matrices = len(self._supports) * self._max_diffusion_step + 1
         x = torch.reshape(x, shape=[num_matrices, self._num_nodes, input_size, batch_size])
         x = x.permute(3, 1, 2, 0)  # (batch_size, num_nodes, input_size, order)
         x = torch.reshape(x, shape=[batch_size * self._num_nodes, input_size * num_matrices])
@@ -165,4 +165,4 @@ class DCGRUCell(torch.nn.Module):
         x += biases
         # Reshape res back to 2D: (batch_size, num_node, state_dim) -> (batch_size, num_node * state_dim)
         return torch.reshape(x, [batch_size, self._num_nodes * output_size])
-
+    

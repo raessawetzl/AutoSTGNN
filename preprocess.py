@@ -1,25 +1,28 @@
 import numpy as np
+import os
 
 # Configuration: 
 # 
-# A run of consecutive zero flow readings at or above this length is
-# treated as a sensor gap (and gets interpolated). Runs shorter than
-# this are left untouched, since they arre assumed to represent genuine
-# low traffic periods
+# Consecutive zero flow readings that are at least this long are treated
+# as missing sensor data and are filled in using interpolation. Shorter
+# zero runs are left unchanged as they are more likely to represent
+# genuine periods of very low traffic
 
-GAP_THRESHOLD_HOURS = 2.0 ############# 
-
-STEPS_PER_HOUR = 12  # 5 minute intervals -> 12 steps per hour
-GAP_THRESHOLD_STEPS = int(GAP_THRESHOLD_HOURS * STEPS_PER_HOUR)
+GAP_THRESHOLD_HOURS = 2.0 
+STEPS_PER_HOUR = 12  # The data records traffic every 5 minutes. So 12 steps per hour
+GAP_THRESHOLD_STEPS = int(GAP_THRESHOLD_HOURS * STEPS_PER_HOUR) # converts hours to steps
 
 # Chronological split ratios for train/val/test 
 TRAIN_RATIO = 0.7
 VAL_RATIO = 0.2
 TEST_RATIO = 0.1
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "..", "data")
+
 DATASET_CONFIGS = [
-    {"name": "PEMS04", "input_path": "PEMS04.npz", "output_path": "PEMS04_processed.npz"},
-    {"name": "PEMS08", "input_path": "PEMS08.npz", "output_path": "PEMS08_processed.npz"},
+    {"name": "PEMS04", "input_path": os.path.join(DATA_DIR, "PEMS04.npz"), "output_path": os.path.join(DATA_DIR, "PEMS04_processed.npz")},
+    {"name": "PEMS08", "input_path": os.path.join(DATA_DIR, "PEMS08.npz"), "output_path": os.path.join(DATA_DIR, "PEMS08_processed.npz")},
 ]
 
 
@@ -29,7 +32,6 @@ def find_zero_runs(sensor_series):
     for every run of consecutive zero values in a single sensor's
     flow series.
 
-    The output for one sensor might look something like [(150, 152), (4002, 4030), (11500, 11524)]
     """
     run_list = []
     series_length = len(sensor_series)
@@ -48,10 +50,10 @@ def find_zero_runs(sensor_series):
 
 def mark_long_runs_as_missing(flow_data, gap_threshold_steps):
     """
-    flow_data: array of shape (num_timesteps, num_sensors)
-    Returns a copy of flow_data where every zero-run of length >=
-    gap_threshold_steps has been replaced with NaN, ready for
-    interpolation. Also returns summary counts.
+    Calls find_zero_runs() for each sensor and replaces any zero run
+    meeting or exceeding the threshold with NaN for interpolation
+
+    Shorter runs are left as zeros as they are likely genuine low traffic
     """
     num_sensors = flow_data.shape[1]
     flow_data_with_gaps = flow_data.copy()
@@ -68,7 +70,7 @@ def mark_long_runs_as_missing(flow_data, gap_threshold_steps):
         while run_index < len(zero_runs):
             run_start, run_end = zero_runs[run_index]
             run_length = run_end - run_start
-            if run_length >= gap_threshold_steps: # If a run meets or exceeds the threshold — likely sensor dropout — those positions get replaced with np.nan
+            if run_length >= gap_threshold_steps: # If a run meets or exceeds the threshold then it is likely sensor dropout and those positions get replaced with np.nan
                 flow_data_with_gaps[run_start:run_end, sensor_index] = np.nan
                 total_runs_marked = total_runs_marked + 1
                 total_steps_marked = total_steps_marked + run_length
@@ -82,7 +84,7 @@ def mark_long_runs_as_missing(flow_data, gap_threshold_steps):
 def interpolate_missing_values(flow_data_with_gaps):
     """
     Receives the array where long zero-runs have been replaced with np.nan
-    and its job is to fill those NaNs with estimated values.
+    and its job is to fill those NaNs with estimated values
     """
     num_timesteps = flow_data_with_gaps.shape[0]
     num_sensors = flow_data_with_gaps.shape[1]
@@ -107,14 +109,14 @@ def interpolate_missing_values(flow_data_with_gaps):
 def split_chronologically(flow_data, train_ratio, val_ratio):
     """
     Slices flow data along the time axis into train/val/test segments
-    in chronological order  so test always represents
-    the most recent period and train always the earliest
+    in chronological order
+
     """
     num_timesteps = flow_data.shape[0]
     train_end_index = int(round(num_timesteps * train_ratio))
     val_end_index = int(round(num_timesteps * (train_ratio + val_ratio)))
 
-    train_data = flow_data[0:train_end_index] # This is what the model actually learns from — it sees these examples repeatedly and adjusts its weights based on them
+    train_data = flow_data[0:train_end_index] # This is what the model actually learns from, it sees these examples repeatedly and adjusts its weights based on them
     val_data = flow_data[train_end_index:val_end_index] # Validation is used during the CASH algorithm runs  to evaluate different hyperparameter configurations
     test_data = flow_data[val_end_index:num_timesteps] # Test is only used at the very end, to evaluate the final chosen model on unseen data and get a realistic estimate of how it will perform in production
 
@@ -123,10 +125,10 @@ def split_chronologically(flow_data, train_ratio, val_ratio):
 
 def normalize_with_train_stats(train_data, val_data, test_data):
     """
-    Computes a single global mean and standard deviation from the
-    training data only, then applies that same scaling to train, val,
-    and test. Using train-only stats avoids leaking information from
-    the validation/test periods into the scaling.
+    Z-score normalizes all splits using training stats only, so all
+    sensors have equal influence on the model. Training stats only
+    mirrors real-world prediction and future data stays unseen
+
     """
     train_mean = train_data.mean()
     train_std = train_data.std()
@@ -184,6 +186,7 @@ def process_dataset(dataset_config, gap_threshold_steps, train_ratio, val_ratio)
 
 
 def main():
+    # Starts the preprocessing pipeline for each dataset in DATASET_CONFIGS
     config_index = 0
     while config_index < len(DATASET_CONFIGS):
         process_dataset(DATASET_CONFIGS[config_index], GAP_THRESHOLD_STEPS, TRAIN_RATIO, VAL_RATIO)

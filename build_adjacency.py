@@ -1,23 +1,30 @@
 import numpy as np
 import pandas as pd
 
+# Purpose: Builds a matrix representing the spatial relationships between
+# traffic sensors. Each cell contains a weight indicating how strongly
+# two sensors are connected based on their physical distance. STGNNs use
+# this matrix to model how traffic at one sensor influences traffic at
+# other connected sensors
+
 # Configuration
 #
 # To build the adjacency matrix, we convert physical distances between 
 # sensors into similarity weights using a Gaussian kernel formula:
 # exp(-(distance^2) / sigma_squared). The closer two sensors are, the 
-# higher their weight (closer to 1). The further apart, the lower (closer to 0).
+# higher their weight (closer to 1). The further apart, the lower (closer to 0)
 #
 # sigma_squared is automatically calculated from the distances in each 
 # dataset's CSV file, so it adapts to each dataset rather than using a 
 # hardcoded value.
-#
-# WEIGHT_THRESHOLD controls how sparse the final graph is — any sensor 
-# pair whose weight falls below this value gets set to zero, meaning the 
-# model treats them as unconnected
+
+# WEIGHT_THRESHOLD controls the minimum connection strength between two
+# sensors. Any sensor pair whose weight falls below this value is treated
+# as too far apart to meaningfully influence each other and gets set to
+# zero, keeping the graph sparse
 
 
-WEIGHT_THRESHOLD = 0.1 ##########################
+WEIGHT_THRESHOLD = 0.1 
 
 DATASET_CONFIGS = [
     {"name": "PEMS04", "csv_path": "PEMS04.csv", "num_sensors": 307, "output_path": "PEMS04_adjacency.npz"},
@@ -27,18 +34,18 @@ DATASET_CONFIGS = [
 
 def build_distance_matrix(distance_dataframe, num_sensors):
     """
-    Takes the sensor distance CSV and builds a num_sensors x num_sensors 
-    matrix where each cell holds the physical distance between two sensors.
-    If two sensors have no listed connection in the CSV, that cell is set 
-    to infinity — this gets converted to a weight of zero in the next step.
-    The matrix is kept directed (not mirrored), because DCRNN treats 
-    traffic flowing from A to B differently from B to A
+    Takes the sensor distance CSV and builds a directed num_sensors x
+    num_sensors matrix of physical distances between sensors. Sensor
+    pairs with no listed connection are set to infinity, which gets
+    converted to zero weight in the next step
 
     """
-    distance_matrix = np.full((num_sensors, num_sensors), np.inf)
+    distance_matrix = np.full((num_sensors, num_sensors), np.inf) #It creates the initial N×N matrix filled entirely with infinity
 
     row_index = 0
     num_rows = len(distance_dataframe)
+
+    #the while loop below populates the actual distances from the CSV
     while row_index < num_rows:
         from_sensor = int(distance_dataframe.iloc[row_index]["from"])
         to_sensor = int(distance_dataframe.iloc[row_index]["to"])
@@ -51,10 +58,12 @@ def build_distance_matrix(distance_dataframe, num_sensors):
 
 def apply_gaussian_kernel(distance_matrix, weight_threshold):
     """
-    Converts physical distances into similarity weights using a
-    Gaussian kernel, then zeroes out any weight below weight_threshold
-    to keep the graph sparse. sigma_squared is the variance of the
-    finite (i.e. actually listed) distances in the matrix.
+    Converts physical distances into weights between 0 and 1 using the
+    Gaussian kernel formula. Sensors that are close get weights near 1,
+    far sensors get weights near 0, and unconnected pairs (infinity)
+    become exactly 0. Any weight below the threshold is set to zero
+    since that sensor pair's influence on prediction is negligible
+    
     """
     finite_distances = distance_matrix[np.isfinite(distance_matrix)]
     sigma_squared = finite_distances.var()

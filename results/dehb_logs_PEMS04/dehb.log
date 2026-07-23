@@ -1,0 +1,2 @@
+2026-07-20T14:18:23.775816+0200 WARNING A checkpoint already exists, results could potentially be overwritten.
+2026-07-20T14:20:23.788710+0200 WARNING Runtime budget exhausted. Saving optimization checkpoint now.
