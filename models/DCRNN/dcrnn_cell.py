@@ -2,11 +2,13 @@
 # Original paper: Li et al. (2018). Diffusion Convolutional Recurrent Neural Network:
 # Data-Driven Traffic Forecasting. arXiv:1707.01926
 # Source: https://github.com/chnsh/DCRNN_PyTorch
-
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import torch
 
-from src import dcrnn_utils
+from src import dcrnn_utils as utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

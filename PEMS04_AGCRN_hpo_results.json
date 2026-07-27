@@ -1,0 +1,226 @@
+{
+  "best_config": null,
+  "best_mae": Infinity,
+  "trials": [
+    {
+      "config": {
+        "cheb_k": 4,
+        "embed_dim": 10,
+        "lr": 0.0026070247584,
+        "num_layers": 1,
+        "rnn_units": 120,
+        "weight_decay": 1.23974203e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 4,
+        "embed_dim": 10,
+        "lr": 0.0041380401126,
+        "num_layers": 3,
+        "rnn_units": 112,
+        "weight_decay": 7.08454151e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 19,
+        "lr": 0.0048872853588,
+        "num_layers": 1,
+        "rnn_units": 96,
+        "weight_decay": 6.16258662e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 4,
+        "embed_dim": 10,
+        "lr": 0.0007923213311,
+        "num_layers": 2,
+        "rnn_units": 78,
+        "weight_decay": 0.0001326033192
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 20,
+        "lr": 0.0012013849374,
+        "num_layers": 2,
+        "rnn_units": 37,
+        "weight_decay": 0.0006097025297
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 2,
+        "embed_dim": 16,
+        "lr": 0.0010507384024,
+        "num_layers": 3,
+        "rnn_units": 93,
+        "weight_decay": 9.87408842e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 4,
+        "lr": 0.000145113111,
+        "num_layers": 2,
+        "rnn_units": 47,
+        "weight_decay": 0.0002463914388
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 4,
+        "embed_dim": 11,
+        "lr": 0.0004809862952,
+        "num_layers": 2,
+        "rnn_units": 79,
+        "weight_decay": 0.0001845877663
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 11,
+        "lr": 0.0012516058338,
+        "num_layers": 1,
+        "rnn_units": 48,
+        "weight_decay": 5.43790487e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 4,
+        "lr": 0.0003643717722,
+        "num_layers": 1,
+        "rnn_units": 68,
+        "weight_decay": 0.0001395034469
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 2,
+        "embed_dim": 6,
+        "lr": 0.0003223497206,
+        "num_layers": 2,
+        "rnn_units": 57,
+        "weight_decay": 1.45609047e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 5,
+        "lr": 0.0004041392483,
+        "num_layers": 1,
+        "rnn_units": 78,
+        "weight_decay": 0.0008947550514
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 12,
+        "lr": 0.0003165816923,
+        "num_layers": 1,
+        "rnn_units": 124,
+        "weight_decay": 2.07631334e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 19,
+        "lr": 0.0006266275267,
+        "num_layers": 2,
+        "rnn_units": 35,
+        "weight_decay": 1.12985476e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 2,
+        "embed_dim": 8,
+        "lr": 0.0020089519235,
+        "num_layers": 1,
+        "rnn_units": 112,
+        "weight_decay": 0.0002307955006
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 3,
+        "embed_dim": 7,
+        "lr": 0.0095721673772,
+        "num_layers": 2,
+        "rnn_units": 54,
+        "weight_decay": 9.84288433e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 2,
+        "embed_dim": 17,
+        "lr": 0.0016028092931,
+        "num_layers": 3,
+        "rnn_units": 70,
+        "weight_decay": 0.0005962225059
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 2,
+        "embed_dim": 16,
+        "lr": 0.0001454445865,
+        "num_layers": 1,
+        "rnn_units": 35,
+        "weight_decay": 0.0003583387974
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 4,
+        "embed_dim": 11,
+        "lr": 0.0014680387869,
+        "num_layers": 2,
+        "rnn_units": 63,
+        "weight_decay": 1.22124154e-05
+      },
+      "val_mae": Infinity
+    },
+    {
+      "config": {
+        "cheb_k": 2,
+        "embed_dim": 17,
+        "lr": 0.002979898089,
+        "num_layers": 1,
+        "rnn_units": 59,
+        "weight_decay": 0.0002490711512
+      },
+      "val_mae": Infinity
+    }
+  ]
+}
