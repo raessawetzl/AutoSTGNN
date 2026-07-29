@@ -28,6 +28,7 @@ class Seq2SeqAttrs:
         self.hidden_state_size = self.num_nodes * self.rnn_units
 
 
+
 class EncoderModel(nn.Module, Seq2SeqAttrs):
     def __init__(self, adj_mx, **model_kwargs):
         nn.Module.__init__(self)
