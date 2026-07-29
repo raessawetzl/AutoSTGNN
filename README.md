@@ -6,7 +6,7 @@
 python src/preprocessing/preprocess.py
 ```
 
-This produces `PEMS04_processed.npz` and `PEMS08_processed.npz` in the `data/` folder, containing normalised train/val/test splits.
+This produces `PEMSBAY_processed.npz` and `METRLA_processed.npz` in the `data/` folder, containing normalised train/val/test splits.
 
 **step 2 - train STGCN with a fixed config**
 
@@ -29,7 +29,7 @@ Runs a SMAC3-based BOHB search over the hyperparameter space defined below, usin
 Key settings (in `bohb_runner.py`):
 | Setting | Description |
 |---|---|
-| `DATASET_NAME` | `"PEMS04"` or `"PEMS08"` |
+| `DATASET_NAME` | `"PEMS_BAY"` or `"METR_LA"` |
 | `N_TRIALS` | Total number of configurations evaluated |
 | `MIN_BUDGET` / `MAX_BUDGET` | Min/max epochs HyperBand allocates per trial |
 
@@ -54,12 +54,13 @@ Defined in `src/search_space.py` using the ConfigSpace library. Shared across al
 
 ## Datasets
 
-| Dataset | Region | Sensors | Period | Interval |
-|---|---|---|---|---|
-| PeMSD4 | San Francisco Bay Area | 307 | 2 months | 5 min |
-| PeMSD8 | San Bernardino County, CA | 170 | 2 months | 5 min |
+| Dataset | Domain | Sensors | Interval |
+|---|---|---|---|
+| PEMS-BAY | Traffic speed, SF Bay Area | 325 | 5 min |
+| METR-LA | Traffic speed, Los Angeles | 207 | 5 min |
 
-Both datasets are publicly available via the [LibCity](https://github.com/LibCity/Bigscity-LibCity) framework.
+All datasets are available via [torchspatiotemporal](https://github.com/torch-spatiotemporal).
+
 
 ---
 

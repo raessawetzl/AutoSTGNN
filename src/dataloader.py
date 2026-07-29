@@ -15,13 +15,13 @@ BATCH_SIZE = 64
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 DATASET_PATHS = {
-    "PEMS04": {
-        "processed_path": BASE_DIR / "data" / "PEMS04_processed.npz",
-        "adjacency_path": BASE_DIR / "data" / "PEMS04_adjacency.npz",
+    "PEMS-BAY": {
+        "processed_path": BASE_DIR / "data" / "PEMSBAY_processed.npz",
+        "adjacency_path": BASE_DIR / "data" / "PEMSBAY_adjacency.npz",
     },
-    "PEMS08": {
-        "processed_path": BASE_DIR / "data" / "PEMS08_processed.npz",
-        "adjacency_path": BASE_DIR / "data" / "PEMS08_adjacency.npz",
+    "METR-LA": {
+        "processed_path": BASE_DIR / "data" / "METRLA_processed.npz",
+        "adjacency_path": BASE_DIR / "data" / "METRLA_adjacency.npz",
     },
 }
 
@@ -125,7 +125,7 @@ def get_dataloaders(dataset_name, window=WINDOW, horizon=HORIZON, batch_size=BAT
 
 
 if __name__ == "__main__":
-    train_loader, val_loader, test_loader, mean, std, adj_mx = get_dataloaders("PEMS04")
+    train_loader, val_loader, test_loader, mean, std, adj_mx = get_dataloaders("PEMS-BAY")
 
     # quick check: pull one batch and print its shape
     x_batch, y_batch = next(iter(train_loader))

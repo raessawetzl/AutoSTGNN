@@ -20,7 +20,7 @@ from search_space import get_stgcn_config_space
 
 # settings
 
-DATASET_NAME = "PEMS08"       # "PEMS04" or "PEMS08"
+DATASET_NAME = "PEMS-BAY"       # "PEMS-BAY" or "METR-LA"
 MODEL_NAME   = "STGCN"        # used for logging and output paths
 N_TRIALS     = 50             # total BOHB configurations to evaluate
 EPOCHS       = 50             # epochs per trial (SMAC controls budget via fidelity)
