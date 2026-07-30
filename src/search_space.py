@@ -67,11 +67,5 @@ def get_shared_config_space():
     return cs
 
 def get_stgcn_config_space() -> CS.ConfigurationSpace:
-    """STGCN search space = shared params + Chebyshev filter order"""
-    cs = get_shared_config_space()
-
-    cs.add_hyperparameter(
-        CSH.UniformIntegerHyperparameter('K_cheb', lower=1, upper=5)
-    )
-
-    return cs
+    """STGCN search space — K_cheb removed, tsl handles graph conv internally"""
+    return get_shared_config_space()

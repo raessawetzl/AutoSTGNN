@@ -13,14 +13,14 @@ from smac.intensifier.hyperband import Hyperband
 from ConfigSpace import ConfigurationSpace
 
 from dataloader import get_dataloaders
-from models.stgcn import STGCN
-from graph_utils import get_laplacian_tensor
+from tsl.nn.models import STCNModel
+from graph_utils import adj_to_edge_index
 from metrics import compute_metrics
 from search_space import get_stgcn_config_space
 
 # settings
 
-DATASET_NAME = "PEMS-BAY"       # "PEMS-BAY" or "METR-LA"
+DATASET_NAME = "METR-LA"       # "PEMS-BAY" or "METR-LA"
 MODEL_NAME   = "STGCN"        # used for logging and output paths
 N_TRIALS     = 50             # total BOHB configurations to evaluate
 EPOCHS       = 50             # epochs per trial (SMAC controls budget via fidelity)
@@ -43,31 +43,27 @@ _test_loader  = None
 _mean         = None
 _std          = None
 _adj_mx       = None
-_Lk_cache     = {}         # keyed by K_cheb
+_edge_index = None
+_edge_weight = None
 
 def _ensure_data_loaded(batch_size: int):
     """Loads data splits once per batch_size value encountered."""
     global _val_loader, _test_loader, _mean, _std, _adj_mx
 
     if _adj_mx is None:
-        # load with a dummy batch size to get val/test loaders and adj
         _, _val_loader, _test_loader, _mean, _std, _adj_mx = get_dataloaders(
             DATASET_NAME, batch_size=64
         )
+        global _edge_index, _edge_weight
+        _edge_index, _edge_weight = adj_to_edge_index(_adj_mx)
+        _edge_index = _edge_index.to(DEVICE)
+        _edge_weight = _edge_weight.to(DEVICE)
 
     if batch_size not in _train_loader_cache:
         train_loader, _, _, _, _, _ = get_dataloaders(
             DATASET_NAME, batch_size=batch_size
         )
         _train_loader_cache[batch_size] = train_loader
-
-
-def _get_lk(K: int) -> torch.Tensor:
-    """Builds (and caches) the Chebyshev Laplacian for a given K."""
-    if K not in _Lk_cache:
-        _Lk_cache[K] = get_laplacian_tensor(_adj_mx, K).to(DEVICE)
-    return _Lk_cache[K]
-
 
 # target function — called by SMAC for every configuration it wants to try
 
@@ -102,23 +98,25 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
     dropout      = float(config["dropout"])
     batch_size   = int(config["batch_size"])
     weight_decay = float(config["weight_decay"])
-    K            = int(config["K_cheb"])
 
     # ensure data is loaded for this batch_size
     _ensure_data_loaded(batch_size)
     train_loader = _train_loader_cache[batch_size]
-    Lk = _get_lk(K)
 
     num_sensors = _adj_mx.shape[0]
 
     # build model
-    model = STGCN(
-        num_sensors=num_sensors,
-        num_layers=num_layers,
-        hidden_units=hidden_units,
-        K=K,
-        dropout=dropout,
+    model = STCNModel(
+        input_size=1,
+        exog_size=0,
+        hidden_size=hidden_units,
+        ff_size=hidden_units,
+        output_size=1,
+        n_layers=num_layers,
         horizon=12,
+        temporal_kernel_size=2,
+        spatial_kernel_size=2,
+        dropout=dropout,
     ).to(DEVICE)
 
     optimizer = torch.optim.Adam(
@@ -139,7 +137,6 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
             "dropout": dropout,
             "batch_size": batch_size,
             "weight_decay": weight_decay,
-            "K_cheb": K,
             "budget_epochs": budget,
             "seed": seed,
             "dataset": DATASET_NAME,
@@ -160,7 +157,7 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
             x_batch = x_batch.to(DEVICE)
             y_batch = y_batch.to(DEVICE)
             optimizer.zero_grad()
-            pred = model(x_batch, Lk)
+            pred = model(x_batch, _edge_index, _edge_weight)
             loss = loss_fn(pred, y_batch)
             loss.backward()
             optimizer.step()
@@ -173,7 +170,7 @@ def train_stgcn(config, seed: int = SEED, budget: int = EPOCHS) -> float:
             for x_batch, y_batch in _val_loader:
                 x_batch = x_batch.to(DEVICE)
                 y_batch = y_batch.to(DEVICE)
-                pred = model(x_batch, Lk)
+                pred = model(x_batch, _edge_index, _edge_weight)
                 loss = loss_fn(pred, y_batch)
                 val_losses.append(loss.item())
 
@@ -253,16 +250,19 @@ def run_bohb():
 
     # retrain from scratch on train+val with best config at full budget
     _ensure_data_loaded(incumbent["batch_size"])
-    Lk = _get_lk(incumbent["K_cheb"])
     num_sensors = _adj_mx.shape[0]
 
-    model = STGCN(
-        num_sensors=num_sensors,
-        num_layers=incumbent["num_layers"],
-        hidden_units=incumbent["hidden_units"],
-        K=incumbent["K_cheb"],
-        dropout=incumbent["dropout"],
+    model = STCNModel(
+        input_size=1,
+        exog_size=0,
+        hidden_size=incumbent["hidden_units"],
+        ff_size=incumbent["hidden_units"],
+        output_size=1,
+        n_layers=incumbent["num_layers"],
         horizon=12,
+        temporal_kernel_size=2,
+        spatial_kernel_size=2,
+        dropout=incumbent["dropout"],
     ).to(DEVICE)
 
     optimizer = torch.optim.Adam(
@@ -281,7 +281,7 @@ def run_bohb():
             x_batch = x_batch.to(DEVICE)
             y_batch = y_batch.to(DEVICE)
             optimizer.zero_grad()
-            pred = model(x_batch, Lk)
+            pred = model(x_batch, _edge_index, _edge_weight)
             loss_fn(pred, y_batch).backward()
             optimizer.step()
 
@@ -292,7 +292,7 @@ def run_bohb():
         for x_batch, y_batch in _test_loader:
             x_batch = x_batch.to(DEVICE)
             y_batch = y_batch.to(DEVICE)
-            pred = model(x_batch, Lk)
+            pred = model(x_batch, _edge_index, _edge_weight)
             all_preds.append(pred.cpu())
             all_targets.append(y_batch.cpu())
 
