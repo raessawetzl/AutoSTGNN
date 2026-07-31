@@ -1,6 +1,6 @@
 import torch
 import pytorch_lightning as pl
-from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel
+from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel, AGCRNModel
 from tsl.engines import Predictor
 from tsl.metrics.torch import MaskedMAE, MaskedMAPE
 
@@ -11,9 +11,9 @@ MODEL_MAP = {
     'graphwavenet': GraphWaveNetModel,
     'dcrnn': DCRNNModel,
     'stgcn': STCNModel,
+    'agcrn': AGCRNModel
 }
 
-# Default hyperparams per model — override any of these via model_kwargs
 DEFAULT_MODEL_KWARGS = {
     'graphwavenet': {
         'exog_size': 0,
@@ -38,7 +38,6 @@ DEFAULT_MODEL_KWARGS = {
         'dropout': 0,
         'activation': 'relu',
     },
-    # STGCN signature not confirmed yet — placeholder, see note below
     'stgcn': {
         'hidden_size': 64,
         'ff_size': 128,
@@ -46,6 +45,11 @@ DEFAULT_MODEL_KWARGS = {
         'temporal_kernel_size': 3,
         'spatial_kernel_size': 2,
         'dropout': 0.3,
+    },
+    'agcrn': {
+        'hidden_size': 64,
+        'emb_size': 10,
+        'n_layers': 1,
     },
 }
 
@@ -60,12 +64,10 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
 
     model_cls = MODEL_MAP[model_name]
 
-    # Start from defaults, override with anything passed in
     kwargs = dict(DEFAULT_MODEL_KWARGS[model_name])
     if model_kwargs:
         kwargs.update(model_kwargs)
 
-    # GraphWaveNet needs n_nodes explicitly when learned_adjacency=True
     if model_name == 'graphwavenet' and kwargs.get('learned_adjacency', True):
         kwargs['n_nodes'] = n_nodes
 
@@ -131,11 +133,3 @@ def train(
     test_results = trainer.test(predictor, dataloaders=test_loader)
 
     return predictor, trainer, test_results
-
-
-if __name__ == '__main__':
-    predictor, trainer, results = train(
-        dataset_name='metrla',
-        model_name='graphwavenet',
-        model_kwargs={'hidden_size': 128, 'n_layers': 2}
-    )

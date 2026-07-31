@@ -1,9 +1,10 @@
-from trainer import train
+from random_search import run_random_search
 def main():
-        predictor, trainer, results = train(
-        dataset_name='metrla',
+    run_random_search(
         model_name='graphwavenet',
-        model_kwargs={'hidden_size': 128, 'n_layers': 2}
+        dataset_name='pemsbay',
+        n_trials=10,
+        max_epochs=10,
     )
 if __name__ == "__main__":
         main()

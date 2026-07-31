@@ -1,0 +1,182 @@
+[
+  {
+    "trial": 0,
+    "lr": 0.0001033076804,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.3898455001364,
+      "emb_size": 9,
+      "ff_size": 256,
+      "hidden_size": 32,
+      "n_layers": 7
+    },
+    "test_mae": 3.5255234241485596,
+    "test_results": {
+      "test_mae": 3.5255234241485596,
+      "test_mape": 0.10028140246868134,
+      "test_loss": 3.394528865814209
+    }
+  },
+  {
+    "trial": 1,
+    "lr": 0.0001112051372,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.2984250789732,
+      "emb_size": 8,
+      "ff_size": 128,
+      "hidden_size": 16,
+      "n_layers": 10
+    },
+    "test_mae": 3.6501052379608154,
+    "test_results": {
+      "test_mae": 3.6501052379608154,
+      "test_mape": 0.10525006800889969,
+      "test_loss": 3.6038689613342285
+    }
+  },
+  {
+    "trial": 2,
+    "lr": 0.0011208547084,
+    "batch_size": 16,
+    "model_kwargs": {
+      "dropout": 0.2229163764268,
+      "emb_size": 12,
+      "ff_size": 256,
+      "hidden_size": 16,
+      "n_layers": 9
+    },
+    "test_mae": 3.1454169750213623,
+    "test_results": {
+      "test_mae": 3.1454169750213623,
+      "test_mape": 0.08917231112718582,
+      "test_loss": 2.9813454151153564
+    }
+  },
+  {
+    "trial": 3,
+    "lr": 0.000630553504,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.049987457909,
+      "emb_size": 12,
+      "ff_size": 256,
+      "hidden_size": 32,
+      "n_layers": 9
+    },
+    "test_mae": 3.1660163402557373,
+    "test_results": {
+      "test_mae": 3.1660163402557373,
+      "test_mape": 0.08999186009168625,
+      "test_loss": 3.050346851348877
+    }
+  },
+  {
+    "trial": 4,
+    "lr": 0.0001239742034,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.2296244459829,
+      "emb_size": 7,
+      "ff_size": 256,
+      "hidden_size": 32,
+      "n_layers": 10
+    },
+    "test_mae": 3.470121383666992,
+    "test_results": {
+      "test_mae": 3.470121383666992,
+      "test_mape": 0.09994030743837357,
+      "test_loss": 3.34030818939209
+    }
+  },
+  {
+    "trial": 5,
+    "lr": 0.0065862893176,
+    "batch_size": 32,
+    "model_kwargs": {
+      "dropout": 0.296207284431,
+      "emb_size": 8,
+      "ff_size": 256,
+      "hidden_size": 64,
+      "n_layers": 5
+    },
+    "test_mae": 3.1802165508270264,
+    "test_results": {
+      "test_mae": 3.1802165508270264,
+      "test_mape": 0.08714079111814499,
+      "test_loss": 3.0280985832214355
+    }
+  },
+  {
+    "trial": 6,
+    "lr": 0.0003292759134,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.02322520636,
+      "emb_size": 13,
+      "ff_size": 128,
+      "hidden_size": 64,
+      "n_layers": 7
+    },
+    "test_mae": 3.1987297534942627,
+    "test_results": {
+      "test_mae": 3.1987297534942627,
+      "test_mape": 0.08809265494346619,
+      "test_loss": 3.083454132080078
+    }
+  },
+  {
+    "trial": 7,
+    "lr": 0.0021137059441,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.3037724259507,
+      "emb_size": 16,
+      "ff_size": 256,
+      "hidden_size": 16,
+      "n_layers": 9
+    },
+    "test_mae": 3.2007837295532227,
+    "test_results": {
+      "test_mae": 3.2007837295532227,
+      "test_mape": 0.08865620940923691,
+      "test_loss": 3.1698198318481445
+    }
+  },
+  {
+    "trial": 8,
+    "lr": 0.0004201672054,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.0852620618436,
+      "emb_size": 18,
+      "ff_size": 128,
+      "hidden_size": 64,
+      "n_layers": 8
+    },
+    "test_mae": 3.1194822788238525,
+    "test_results": {
+      "test_mae": 3.1194822788238525,
+      "test_mape": 0.0849703848361969,
+      "test_loss": 3.005638599395752
+    }
+  },
+  {
+    "trial": 9,
+    "lr": 0.0010968217208,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.0325257964926,
+      "emb_size": 6,
+      "ff_size": 256,
+      "hidden_size": 64,
+      "n_layers": 10
+    },
+    "test_mae": 3.129429578781128,
+    "test_results": {
+      "test_mae": 3.129429578781128,
+      "test_mape": 0.08922609686851501,
+      "test_loss": 3.1036136150360107
+    }
+  }
+]

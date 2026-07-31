@@ -1,6 +1,4 @@
 import os
-import tsl
-import torch
 from tsl.datasets import MetrLA, PemsBay
 from tsl.datasets.pems_benchmarks import PeMS04, PeMS08
 from tsl.data import SpatioTemporalDataset
@@ -13,8 +11,8 @@ DATASET_MAP = {
     'pemsbay': PemsBay,
     'pems04': PeMS04,
     'pems08': PeMS08,
-}
 
+}
 
 def get_dataloaders(
     dataset_name='metrla',
@@ -33,7 +31,6 @@ def get_dataloaders(
             f"Choose from: {list(DATASET_MAP.keys())}"
         )
 
-    # e.g. ./data/pemsbay, ./data/metrla, ./data/pems04, ./data/pems08
     root = os.path.join(base_root, dataset_name)
     os.makedirs(root, exist_ok=True)
 

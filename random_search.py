@@ -8,7 +8,6 @@ from trainer import train
 
 
 def to_native(value):
-    """Convert numpy scalar types to native Python types."""
     if isinstance(value, np.integer):
         return int(value)
     if isinstance(value, np.floating):
@@ -98,11 +97,3 @@ def run_random_search(
 
     return results_log
 
-
-if __name__ == '__main__':
-    run_random_search(
-        model_name='dcrnn',
-        dataset_name='metrla',
-        n_trials=20,
-        max_epochs=20,
-    )
