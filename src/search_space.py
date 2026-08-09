@@ -67,5 +67,4 @@ def get_shared_config_space():
     return cs
 
 def get_stgcn_config_space() -> CS.ConfigurationSpace:
-    """STGCN search space — K_cheb removed, tsl handles graph conv internally"""
     return get_shared_config_space()

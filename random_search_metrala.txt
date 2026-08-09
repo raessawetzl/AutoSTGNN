@@ -1,0 +1,388 @@
+------------------------------------------------------------
+Random Search on METR-LA
+------------------------------------------------------------
+
+Config 1/20: {'batch_size': 64, 'dropout': 0.2984250789732, 'hidden_units': 135, 'learning_rate': 0.0087060208783, 'num_layers': 4, 'weight_decay': 1.11205137e-05}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.7025, val MAE: 0.6345
+  Epoch 2/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 3/50 — train MAE: 0.6178, val MAE: 0.6345
+  Epoch 4/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 5/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 6/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 7/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 8/50 — train MAE: 24516.0404, val MAE: 0.6345
+  Epoch 9/50 — train MAE: 0.6178, val MAE: 0.6345
+  Epoch 10/50 — train MAE: 0.6180, val MAE: 0.6345
+  Epoch 11/50 — train MAE: 0.6179, val MAE: 0.6346
+  Epoch 12/50 — train MAE: 416351.7542, val MAE: 0.6345
+  Epoch 13/50 — train MAE: 938.6786, val MAE: 0.6345
+  Epoch 14/50 — train MAE: 1146748.4915, val MAE: 0.6347
+  Epoch 15/50 — train MAE: 1653118.4450, val MAE: 0.6345
+  Epoch 16/50 — train MAE: 6.6703, val MAE: 0.6345
+  Epoch 17/50 — train MAE: 431827.3969, val MAE: 0.6345
+  Epoch 18/50 — train MAE: 18.8558, val MAE: 0.6345
+  Epoch 19/50 — train MAE: 29.7055, val MAE: 0.6345
+  Epoch 20/50 — train MAE: 16.7298, val MAE: 0.6345
+  Epoch 21/50 — train MAE: 15132055.0040, val MAE: 0.6345
+  Epoch 22/50 — train MAE: 20736548.4900, val MAE: 0.6346
+  Epoch 23/50 — train MAE: 282797.4856, val MAE: 0.6345
+  Epoch 24/50 — train MAE: 7981.0660, val MAE: 0.6350
+  Epoch 25/50 — train MAE: 2028052.8275, val MAE: 0.6346
+  Epoch 26/50 — train MAE: 2.9374, val MAE: 0.6346
+  Epoch 27/50 — train MAE: 84.1593, val MAE: 0.6346
+  Epoch 28/50 — train MAE: 1671.3380, val MAE: 0.6345
+  Epoch 29/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 30/50 — train MAE: 574.9726, val MAE: 0.6345
+  Epoch 31/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 32/50 — train MAE: 0.6178, val MAE: 0.6346
+  Epoch 33/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 34/50 — train MAE: 39250.8464, val MAE: 0.6345
+  Epoch 35/50 — train MAE: 0.6180, val MAE: 0.6345
+  Epoch 36/50 — train MAE: 533546205.2659, val MAE: 0.6345
+  Epoch 37/50 — train MAE: 9.2473, val MAE: 0.6347
+  Epoch 38/50 — train MAE: 260222.9729, val MAE: 0.6345
+  Epoch 39/50 — train MAE: 0.6181, val MAE: 0.6345
+  Epoch 40/50 — train MAE: 0.6180, val MAE: 0.6345
+  Epoch 41/50 — train MAE: 0.6183, val MAE: 0.6346
+  Epoch 42/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 43/50 — train MAE: 379857.4515, val MAE: 0.6349
+  Epoch 44/50 — train MAE: 0.6179, val MAE: 0.6346
+  Epoch 45/50 — train MAE: 0.6178, val MAE: 0.6345
+  Epoch 46/50 — train MAE: 0.6251, val MAE: 0.6345
+  Epoch 47/50 — train MAE: 127.7587, val MAE: 0.6345
+  Epoch 48/50 — train MAE: 70.7278, val MAE: 0.6345
+  Epoch 49/50 — train MAE: 49.2700, val MAE: 0.6345
+  Epoch 50/50 — train MAE: 0.6637, val MAE: 0.6346
+  Test MAE:  0.6406
+  Test RMSE: 1.1031
+  Test MAPE: 182.42%
+Val MAE: 0.6345
+
+Config 2/20: {'batch_size': 64, 'dropout': 0.0998368910792, 'hidden_units': 52, 'learning_rate': 0.0076630826803, 'num_layers': 4, 'weight_decay': 9.78033702e-05}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.2918, val MAE: 0.2682
+  Epoch 2/50 — train MAE: 0.2740, val MAE: 0.2778
+  Epoch 3/50 — train MAE: 0.2696, val MAE: 0.2634
+  Epoch 4/50 — train MAE: 0.2675, val MAE: 0.2628
+  Epoch 5/50 — train MAE: 0.2662, val MAE: 0.2614
+  Epoch 6/50 — train MAE: 0.2650, val MAE: 0.2626
+  Epoch 7/50 — train MAE: 0.2653, val MAE: 0.2584
+  Epoch 8/50 — train MAE: 0.2645, val MAE: 0.2608
+  Epoch 9/50 — train MAE: 0.2641, val MAE: 0.2578
+  Epoch 10/50 — train MAE: 0.2640, val MAE: 0.2641
+  Epoch 11/50 — train MAE: 0.2644, val MAE: 0.2589
+  Epoch 12/50 — train MAE: 0.2630, val MAE: 0.2630
+  Epoch 13/50 — train MAE: 0.2630, val MAE: 0.2586
+  Epoch 14/50 — train MAE: 0.2629, val MAE: 0.2679
+  Epoch 15/50 — train MAE: 0.2621, val MAE: 0.2576
+  Epoch 16/50 — train MAE: 0.2624, val MAE: 0.2577
+  Epoch 17/50 — train MAE: 0.2620, val MAE: 0.2583
+  Epoch 18/50 — train MAE: 0.2622, val MAE: 0.2616
+  Epoch 19/50 — train MAE: 0.2622, val MAE: 0.2573
+  Epoch 20/50 — train MAE: 0.2617, val MAE: 0.2572
+  Epoch 21/50 — train MAE: 0.2613, val MAE: 0.2565
+  Epoch 22/50 — train MAE: 0.2614, val MAE: 0.2566
+  Epoch 23/50 — train MAE: 0.2619, val MAE: 0.2556
+  Epoch 24/50 — train MAE: 0.2617, val MAE: 0.2591
+  Epoch 25/50 — train MAE: 0.5598, val MAE: 0.6345
+  Epoch 26/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 27/50 — train MAE: 0.6179, val MAE: 0.6346
+  Epoch 28/50 — train MAE: 0.6178, val MAE: 0.6345
+  Epoch 29/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 30/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 31/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 32/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 33/50 — train MAE: 6.1305, val MAE: 0.6346
+  Epoch 34/50 — train MAE: 0.6180, val MAE: 0.6345
+  Epoch 35/50 — train MAE: 0.6181, val MAE: 0.6345
+  Epoch 36/50 — train MAE: 0.6180, val MAE: 0.6345
+  Epoch 37/50 — train MAE: 0.6180, val MAE: 0.6346
+  Epoch 38/50 — train MAE: 172404.0470, val MAE: 0.6345
+  Epoch 39/50 — train MAE: 695.9621, val MAE: 0.6345
+  Epoch 40/50 — train MAE: 0.8252, val MAE: 0.6346
+  Epoch 41/50 — train MAE: 1.2221, val MAE: 0.6345
+  Epoch 42/50 — train MAE: 0.6215, val MAE: 0.6345
+  Epoch 43/50 — train MAE: 0.6199, val MAE: 0.6345
+  Epoch 44/50 — train MAE: 0.6178, val MAE: 0.6346
+  Epoch 45/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 46/50 — train MAE: 0.6176, val MAE: 0.6345
+  Epoch 47/50 — train MAE: 0.6195, val MAE: 0.6345
+  Epoch 48/50 — train MAE: 0.6179, val MAE: 0.6345
+  Epoch 49/50 — train MAE: 0.6184, val MAE: 0.6345
+  Epoch 50/50 — train MAE: 0.6179, val MAE: 0.6345
+  Test MAE:  0.6407
+  Test RMSE: 1.0955
+  Test MAPE: 175.23%
+Val MAE: 0.2556
+
+Config 3/20: {'batch_size': 32, 'dropout': 0.28385016391, 'hidden_units': 45, 'learning_rate': 0.0013832094547, 'num_layers': 3, 'weight_decay': 3.64643956e-05}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.3053, val MAE: 0.2672
+  Epoch 2/50 — train MAE: 0.2832, val MAE: 0.2637
+  Epoch 3/50 — train MAE: 0.2794, val MAE: 0.2642
+  Epoch 4/50 — train MAE: 0.2772, val MAE: 0.2600
+  Epoch 5/50 — train MAE: 0.2761, val MAE: 0.2607
+  Epoch 6/50 — train MAE: 0.2750, val MAE: 0.2591
+  Epoch 7/50 — train MAE: 0.2741, val MAE: 0.2605
+  Epoch 8/50 — train MAE: 0.2737, val MAE: 0.2619
+  Epoch 9/50 — train MAE: 0.2733, val MAE: 0.2573
+  Epoch 10/50 — train MAE: 0.2730, val MAE: 0.2573
+  Epoch 11/50 — train MAE: 0.2726, val MAE: 0.2565
+  Epoch 12/50 — train MAE: 0.2723, val MAE: 0.2564
+  Epoch 13/50 — train MAE: 0.2722, val MAE: 0.2577
+  Epoch 14/50 — train MAE: 0.2719, val MAE: 0.2565
+  Epoch 15/50 — train MAE: 0.2719, val MAE: 0.2561
+  Epoch 16/50 — train MAE: 0.2717, val MAE: 0.2581
+  Epoch 17/50 — train MAE: 0.2715, val MAE: 0.2598
+  Epoch 18/50 — train MAE: 0.2714, val MAE: 0.2541
+  Epoch 19/50 — train MAE: 0.2715, val MAE: 0.2555
+  Epoch 20/50 — train MAE: 0.2713, val MAE: 0.2590
+  Epoch 21/50 — train MAE: 0.2709, val MAE: 0.2570
+  Epoch 22/50 — train MAE: 0.2708, val MAE: 0.2550
+  Epoch 23/50 — train MAE: 0.2707, val MAE: 0.2554
+  Epoch 24/50 — train MAE: 0.2706, val MAE: 0.2554
+  Epoch 25/50 — train MAE: 0.2709, val MAE: 0.2551
+  Epoch 26/50 — train MAE: 0.2704, val MAE: 0.2527
+  Epoch 27/50 — train MAE: 0.2705, val MAE: 0.2550
+  Epoch 28/50 — train MAE: 0.2705, val MAE: 0.2554
+  Epoch 29/50 — train MAE: 0.2705, val MAE: 0.2556
+  Epoch 30/50 — train MAE: 0.2704, val MAE: 0.2541
+  Epoch 31/50 — train MAE: 0.2702, val MAE: 0.2553
+  Epoch 32/50 — train MAE: 0.2700, val MAE: 0.2549
+  Epoch 33/50 — train MAE: 0.2701, val MAE: 0.2547
+  Epoch 34/50 — train MAE: 0.2700, val MAE: 0.2540
+  Epoch 35/50 — train MAE: 0.2700, val MAE: 0.2564
+  Epoch 36/50 — train MAE: 0.2702, val MAE: 0.2571
+  Epoch 37/50 — train MAE: 0.2701, val MAE: 0.2553
+  Epoch 38/50 — train MAE: 0.2698, val MAE: 0.2547
+  Epoch 39/50 — train MAE: 0.2701, val MAE: 0.2537
+  Epoch 40/50 — train MAE: 0.2697, val MAE: 0.2548
+  Epoch 41/50 — train MAE: 0.2698, val MAE: 0.2560
+  Epoch 42/50 — train MAE: 0.2694, val MAE: 0.2532
+  Epoch 43/50 — train MAE: 0.2696, val MAE: 0.2548
+  Epoch 44/50 — train MAE: 0.2695, val MAE: 0.2527
+  Epoch 45/50 — train MAE: 0.2695, val MAE: 0.2577
+  Epoch 46/50 — train MAE: 0.2696, val MAE: 0.2553
+  Epoch 47/50 — train MAE: 0.2693, val MAE: 0.2533
+  Epoch 48/50 — train MAE: 0.2694, val MAE: 0.2527
+  Epoch 49/50 — train MAE: 0.2693, val MAE: 0.2547
+  Epoch 50/50 — train MAE: 0.2694, val MAE: 0.2531
+  Test MAE:  0.2375
+  Test RMSE: 0.5054
+  Test MAPE: 111.60%
+Val MAE: 0.2527
+
+Config 4/20: {'batch_size': 64, 'dropout': 0.0994212020444, 'hidden_units': 72, 'learning_rate': 0.0007923213311, 'num_layers': 4, 'weight_decay': 8.79892975e-05}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.2911, val MAE: 0.2696
+  Epoch 2/50 — train MAE: 0.2712, val MAE: 0.2621
+  Epoch 3/50 — train MAE: 0.2667, val MAE: 0.2583
+  Epoch 4/50 — train MAE: 0.2634, val MAE: 0.2563
+  Epoch 5/50 — train MAE: 0.2615, val MAE: 0.2557
+  Epoch 6/50 — train MAE: 0.2598, val MAE: 0.2540
+  Epoch 7/50 — train MAE: 0.2586, val MAE: 0.2559
+  Epoch 8/50 — train MAE: 0.2577, val MAE: 0.2526
+  Epoch 9/50 — train MAE: 0.2569, val MAE: 0.2518
+  Epoch 10/50 — train MAE: 0.2565, val MAE: 0.2539
+  Epoch 11/50 — train MAE: 0.2558, val MAE: 0.2510
+  Epoch 12/50 — train MAE: 0.2553, val MAE: 0.2526
+  Epoch 13/50 — train MAE: 0.2546, val MAE: 0.2489
+  Epoch 14/50 — train MAE: 0.2543, val MAE: 0.2511
+  Epoch 15/50 — train MAE: 0.2535, val MAE: 0.2496
+  Epoch 16/50 — train MAE: 0.2533, val MAE: 0.2490
+  Epoch 17/50 — train MAE: 0.2526, val MAE: 0.2492
+  Epoch 18/50 — train MAE: 0.2522, val MAE: 0.2492
+  Epoch 19/50 — train MAE: 0.2520, val MAE: 0.2470
+  Epoch 20/50 — train MAE: 0.2514, val MAE: 0.2488
+  Epoch 21/50 — train MAE: 0.2511, val MAE: 0.2450
+  Epoch 22/50 — train MAE: 0.2509, val MAE: 0.2494
+  Epoch 23/50 — train MAE: 0.2505, val MAE: 0.2453
+  Epoch 24/50 — train MAE: 0.2503, val MAE: 0.2460
+  Epoch 25/50 — train MAE: 0.2499, val MAE: 0.2458
+  Epoch 26/50 — train MAE: 0.2498, val MAE: 0.2475
+  Epoch 27/50 — train MAE: 0.2494, val MAE: 0.2458
+  Epoch 28/50 — train MAE: 0.2493, val MAE: 0.2455
+  Epoch 29/50 — train MAE: 0.2489, val MAE: 0.2460
+  Epoch 30/50 — train MAE: 0.2488, val MAE: 0.2444
+  Epoch 31/50 — train MAE: 0.2484, val MAE: 0.2428
+  Epoch 32/50 — train MAE: 0.2482, val MAE: 0.2441
+  Epoch 33/50 — train MAE: 0.2483, val MAE: 0.2431
+  Epoch 34/50 — train MAE: 0.2480, val MAE: 0.2446
+  Epoch 35/50 — train MAE: 0.2480, val MAE: 0.2423
+  Epoch 36/50 — train MAE: 0.2474, val MAE: 0.2431
+  Epoch 37/50 — train MAE: 0.2474, val MAE: 0.2425
+  Epoch 38/50 — train MAE: 0.2470, val MAE: 0.2443
+  Epoch 39/50 — train MAE: 0.2469, val MAE: 0.2428
+  Epoch 40/50 — train MAE: 0.2468, val MAE: 0.2446
+  Epoch 41/50 — train MAE: 0.2469, val MAE: 0.2421
+  Epoch 42/50 — train MAE: 0.2462, val MAE: 0.2427
+  Epoch 43/50 — train MAE: 0.2464, val MAE: 0.2428
+  Epoch 44/50 — train MAE: 0.2459, val MAE: 0.2416
+  Epoch 45/50 — train MAE: 0.2464, val MAE: 0.2424
+  Epoch 46/50 — train MAE: 0.2457, val MAE: 0.2422
+  Epoch 47/50 — train MAE: 0.2457, val MAE: 0.2417
+  Epoch 48/50 — train MAE: 0.2458, val MAE: 0.2440
+  Epoch 49/50 — train MAE: 0.2450, val MAE: 0.2417
+  Epoch 50/50 — train MAE: 0.2452, val MAE: 0.2410
+  Test MAE:  0.2282
+  Test RMSE: 0.4859
+  Test MAPE: 105.76%
+Val MAE: 0.2410
+
+Config 5/20: {'batch_size': 64, 'dropout': 0.3553314448429, 'hidden_units': 83, 'learning_rate': 0.0016174645036, 'num_layers': 3, 'weight_decay': 0.0004132765459}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.3013, val MAE: 0.2727
+  Epoch 2/50 — train MAE: 0.2823, val MAE: 0.2678
+  Epoch 3/50 — train MAE: 0.2795, val MAE: 0.2676
+  Epoch 4/50 — train MAE: 0.2785, val MAE: 0.2663
+  Epoch 5/50 — train MAE: 0.2779, val MAE: 0.2687
+  Epoch 6/50 — train MAE: 0.2776, val MAE: 0.2666
+  Epoch 7/50 — train MAE: 0.2776, val MAE: 0.2662
+  Epoch 8/50 — train MAE: 0.2771, val MAE: 0.2661
+  Epoch 9/50 — train MAE: 0.2769, val MAE: 0.2647
+  Epoch 10/50 — train MAE: 0.2771, val MAE: 0.2670
+  Epoch 11/50 — train MAE: 0.2771, val MAE: 0.2663
+  Epoch 12/50 — train MAE: 0.2766, val MAE: 0.2660
+  Epoch 13/50 — train MAE: 0.2767, val MAE: 0.2682
+  Epoch 14/50 — train MAE: 0.2767, val MAE: 0.2680
+  Epoch 15/50 — train MAE: 0.2765, val MAE: 0.2647
+  Epoch 16/50 — train MAE: 0.2765, val MAE: 0.2666
+  Epoch 17/50 — train MAE: 0.2766, val MAE: 0.2666
+  Epoch 18/50 — train MAE: 0.2768, val MAE: 0.2694
+  Epoch 19/50 — train MAE: 0.2761, val MAE: 0.2650
+  Epoch 20/50 — train MAE: 0.2765, val MAE: 0.2698
+  Epoch 21/50 — train MAE: 0.2764, val MAE: 0.2653
+  Epoch 22/50 — train MAE: 0.2765, val MAE: 0.2641
+  Epoch 23/50 — train MAE: 0.2764, val MAE: 0.2663
+  Epoch 24/50 — train MAE: 0.2763, val MAE: 0.2663
+  Epoch 25/50 — train MAE: 0.2764, val MAE: 0.2645
+  Epoch 26/50 — train MAE: 0.2764, val MAE: 0.2690
+  Epoch 27/50 — train MAE: 0.2764, val MAE: 0.2658
+  Epoch 28/50 — train MAE: 0.2763, val MAE: 0.2656
+  Epoch 29/50 — train MAE: 0.2762, val MAE: 0.2669
+  Epoch 30/50 — train MAE: 0.2763, val MAE: 0.2712
+  Epoch 31/50 — train MAE: 0.2763, val MAE: 0.2650
+  Epoch 32/50 — train MAE: 0.2761, val MAE: 0.2652
+  Epoch 33/50 — train MAE: 0.2764, val MAE: 0.2665
+  Epoch 34/50 — train MAE: 0.2762, val MAE: 0.2656
+  Epoch 35/50 — train MAE: 0.2762, val MAE: 0.2656
+  Epoch 36/50 — train MAE: 0.2764, val MAE: 0.2659
+  Epoch 37/50 — train MAE: 0.2764, val MAE: 0.2652
+  Epoch 38/50 — train MAE: 0.2761, val MAE: 0.2665
+  Epoch 39/50 — train MAE: 0.2761, val MAE: 0.2661
+  Epoch 40/50 — train MAE: 0.2761, val MAE: 0.2648
+  Epoch 41/50 — train MAE: 0.2762, val MAE: 0.2654
+  Epoch 42/50 — train MAE: 0.2761, val MAE: 0.2660
+  Epoch 43/50 — train MAE: 0.2760, val MAE: 0.2702
+  Epoch 44/50 — train MAE: 0.2761, val MAE: 0.2676
+  Epoch 45/50 — train MAE: 0.2762, val MAE: 0.2660
+  Epoch 46/50 — train MAE: 0.2761, val MAE: 0.2641
+  Epoch 47/50 — train MAE: 0.2761, val MAE: 0.2664
+  Epoch 48/50 — train MAE: 0.2760, val MAE: 0.2659
+  Epoch 49/50 — train MAE: 0.2763, val MAE: 0.2688
+  Epoch 50/50 — train MAE: 0.2760, val MAE: 0.2651
+  Test MAE:  0.2473
+  Test RMSE: 0.5317
+  Test MAPE: 112.56%
+Val MAE: 0.2641
+
+Config 6/20: {'batch_size': 32, 'dropout': 0.4480456499617, 'hidden_units': 147, 'learning_rate': 0.0010507384024, 'num_layers': 3, 'weight_decay': 0.0001306784589}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.2933, val MAE: 0.2648
+  Epoch 2/50 — train MAE: 0.2783, val MAE: 0.2646
+  Epoch 3/50 — train MAE: 0.2759, val MAE: 0.2620
+  Epoch 4/50 — train MAE: 0.2749, val MAE: 0.2668
+  Epoch 5/50 — train MAE: 0.2741, val MAE: 0.2615
+  Epoch 6/50 — train MAE: 0.2742, val MAE: 0.2681
+  Epoch 7/50 — train MAE: 0.2734, val MAE: 0.2613
+  Epoch 8/50 — train MAE: 0.2732, val MAE: 0.2604
+  Epoch 9/50 — train MAE: 0.2733, val MAE: 0.2612
+  Epoch 10/50 — train MAE: 0.2730, val MAE: 0.2606
+  Epoch 11/50 — train MAE: 0.2731, val MAE: 0.2630
+  Epoch 12/50 — train MAE: 0.2726, val MAE: 0.2610
+  Epoch 13/50 — train MAE: 0.2726, val MAE: 0.2617
+  Epoch 14/50 — train MAE: 0.2722, val MAE: 0.2618
+  Epoch 15/50 — train MAE: 0.2724, val MAE: 0.2606
+  Epoch 16/50 — train MAE: 0.2721, val MAE: 0.2654
+  Epoch 17/50 — train MAE: 0.2719, val MAE: 0.2596
+  Epoch 18/50 — train MAE: 0.2718, val MAE: 0.2605
+  Epoch 19/50 — train MAE: 0.2719, val MAE: 0.2597
+  Epoch 20/50 — train MAE: 0.2722, val MAE: 0.2610
+  Epoch 21/50 — train MAE: 0.2717, val MAE: 0.2605
+  Epoch 22/50 — train MAE: 0.2715, val MAE: 0.2608
+  Epoch 23/50 — train MAE: 0.2716, val MAE: 0.2599
+  Epoch 24/50 — train MAE: 0.2715, val MAE: 0.2602
+  Epoch 25/50 — train MAE: 0.2717, val MAE: 0.2592
+  Epoch 26/50 — train MAE: 0.2718, val MAE: 0.2599
+  Epoch 27/50 — train MAE: 0.2713, val MAE: 0.2618
+  Epoch 28/50 — train MAE: 0.2715, val MAE: 0.2599
+  Epoch 29/50 — train MAE: 0.2714, val MAE: 0.2618
+  Epoch 30/50 — train MAE: 0.2713, val MAE: 0.2606
+  Epoch 31/50 — train MAE: 0.2712, val MAE: 0.2603
+  Epoch 32/50 — train MAE: 0.2713, val MAE: 0.2620
+  Epoch 33/50 — train MAE: 0.2712, val MAE: 0.2586
+  Epoch 34/50 — train MAE: 0.2713, val MAE: 0.2580
+  Epoch 35/50 — train MAE: 0.2715, val MAE: 0.2609
+  Epoch 36/50 — train MAE: 0.2710, val MAE: 0.2634
+  Epoch 37/50 — train MAE: 0.2712, val MAE: 0.2597
+  Epoch 38/50 — train MAE: 0.2713, val MAE: 0.2583
+  Epoch 39/50 — train MAE: 0.2712, val MAE: 0.2609
+  Epoch 40/50 — train MAE: 0.2710, val MAE: 0.2599
+  Epoch 41/50 — train MAE: 0.2711, val MAE: 0.2579
+  Epoch 42/50 — train MAE: 0.2711, val MAE: 0.2580
+  Epoch 43/50 — train MAE: 0.2711, val MAE: 0.2589
+  Epoch 44/50 — train MAE: 0.2711, val MAE: 0.2596
+  Epoch 45/50 — train MAE: 0.2711, val MAE: 0.2579
+  Epoch 46/50 — train MAE: 0.2709, val MAE: 0.2589
+  Epoch 47/50 — train MAE: 0.2709, val MAE: 0.2603
+  Epoch 48/50 — train MAE: 0.2709, val MAE: 0.2594
+  Epoch 49/50 — train MAE: 0.2709, val MAE: 0.2611
+  Epoch 50/50 — train MAE: 0.2706, val MAE: 0.2598
+  Test MAE:  0.2441
+  Test RMSE: 0.5155
+  Test MAPE: 110.43%
+Val MAE: 0.2579
+
+Config 7/20: {'batch_size': 64, 'dropout': 0.1424202471887, 'hidden_units': 255, 'learning_rate': 0.0001948900846, 'num_layers': 3, 'weight_decay': 0.0004039052635}
+--- METR-LA ---
+Train samples: 23967, shape per sample: (12, 207, 1)
+Val samples: 6832
+Test samples: 3404
+Adjacency matrix shape: (207, 207)
+
+  Epoch 1/50 — train MAE: 0.2868, val MAE: 0.2708
+  Epoch 2/50 — train MAE: 0.2708, val MAE: 0.2641
+  Epoch 3/50 — train MAE: 0.2674, val MAE: 0.2647
+  Epoch 4/50 — train MAE: 0.2652, val MAE: 0.2623
+slurmstepd: error: *** JOB 1191682 ON srvrocgpu012 CANCELLED AT 2026-08-09T06:59:30 DUE TO TIME LIMIT ***

@@ -17,6 +17,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SEED = 42
 
 def train(config_dict, dataset_name="METR-LA", epochs=10):
+    torch.cuda.empty_cache()  # memory efficient 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
@@ -27,7 +28,7 @@ def train(config_dict, dataset_name="METR-LA", epochs=10):
     batch_size   = int(config_dict["batch_size"])
     weight_decay = float(config_dict["weight_decay"])
 
-    train_loader, val_loader, _, _, _, adj_mx = get_dataloaders(
+    train_loader, val_loader, test_loader, _, _, adj_mx = get_dataloaders(
         dataset_name, batch_size=batch_size
     )
     edge_index, edge_weight = adj_to_edge_index(adj_mx)
@@ -54,12 +55,24 @@ def train(config_dict, dataset_name="METR-LA", epochs=10):
 
     for epoch in range(epochs):
         model.train()
+        train_losses = []
         for x_batch, y_batch in train_loader:
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
             optimizer.zero_grad()
             pred = model(x_batch, edge_index, edge_weight)
-            loss_fn(pred, y_batch).backward()
+
+            #debug
+            x_batch, y_batch = next(iter(train_loader))
+            x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
+            pred = model(x_batch, edge_index, edge_weight)
+            print("pred shape:", pred.shape, "target shape:", y_batch.shape)
+            print("pred mean/std:", pred.mean().item(), pred.std().item())
+            print("target mean/std:", y_batch.mean().item(), y_batch.std().item())
+
+            loss = loss_fn(pred, y_batch)
+            loss.backward()
             optimizer.step()
+            train_losses.append(loss.item())
 
         model.eval()
         val_losses = []
@@ -73,7 +86,26 @@ def train(config_dict, dataset_name="METR-LA", epochs=10):
         if val_mae < best_val_mae:
             best_val_mae = val_mae
 
-        print(f"  Epoch {epoch+1}/{epochs} — val MAE: {val_mae:.4f}")
+        print(f"  Epoch {epoch+1}/{epochs} — train MAE: {np.mean(train_losses):.4f}, val MAE: {val_mae:.4f}")
+
+    # test evaluation
+    model.eval()
+    all_preds, all_targets = [], []
+    with torch.no_grad():
+        for x_batch, y_batch in test_loader:
+            x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
+            pred = model(x_batch, edge_index, edge_weight)
+            all_preds.append(pred.cpu())
+            all_targets.append(y_batch.cpu())
+    preds = torch.cat(all_preds)
+    targets = torch.cat(all_targets)
+    metrics = compute_metrics(preds, targets)
+    print(f"  Test MAE:  {metrics['MAE']:.4f}")
+    print(f"  Test RMSE: {metrics['RMSE']:.4f}")
+    print(f"  Test MAPE: {metrics['MAPE']:.2f}%")
+
+    del model
+    torch.cuda.empty_cache()
 
     return best_val_mae
 
@@ -104,9 +136,23 @@ if __name__ == "__main__":
     print("-"*60)
     print("Random Search on METR-LA")
     print("-"*60)
-    results_metrla = random_search(n_configs=20, epochs=10, dataset_name="METR-LA")
+    results_metrla = random_search(n_configs=5, epochs=5, dataset_name="METR-LA")
 
-    print("\n" + "-"*60)
-    print("Random Search on PEMS-BAY")
-    print("-"*60)
-    results_pemsbay = random_search(n_configs=20, epochs=10, dataset_name="PEMS-BAY")
+    # print("\n" + "-"*60)
+    # print("Random Search on PEMS-BAY")
+    # print("-"*60)
+    # results_pemsbay = random_search(n_configs=20, epochs=20, dataset_name="PEMS-BAY")
+
+    results_path = Path(__file__).resolve().parent / "rs_metrla_results.txt"
+    with open(results_path, "w") as f:
+
+        f.write("Random Search Results — METR-LA\n")
+        f.write("="*50 + "\n")
+        for val_mae, cfg in results_metrla[:5]:
+            f.write(f"Val MAE: {val_mae:.4f} | {cfg}\n")
+
+        # f.write("\nRandom Search Results — PEMS-BAY\n")
+        # f.write("="*50 + "\n")
+        # for val_mae, cfg in results_pemsbay[:5]:
+        #     f.write(f"Val MAE: {val_mae:.4f} | {cfg}\n")
+    print(f"Results saved to {results_path}")
