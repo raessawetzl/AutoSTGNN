@@ -2,7 +2,7 @@ from random_search import run_random_search
 def main():
     run_random_search(
         model_name='graphwavenet',
-        dataset_name='pemsbay',
+        dataset_name='weatherbench',
         n_trials=10,
         max_epochs=10,
     )
