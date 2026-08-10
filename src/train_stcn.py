@@ -117,9 +117,6 @@ def train(config, dataset_name="METR-LA", epochs=50, algorithm="random_search"):
     targets = torch.cat(all_targets)
     mask = torch.cat(all_masks).bool()
 
-    preds = scaler.inverse_transform(preds)
-    targets = scaler.inverse_transform(targets)
-
     per_horizon_metrics = evaluate_per_horizon(preds, targets, mask=mask)
 
     print("  --- Per-horizon test results (real units) ---")
