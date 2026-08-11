@@ -1,31 +1,37 @@
-import ConfigSpace as CS
-import ConfigSpace.hyperparameters as CSH
-def get_config_space(model_name):
-    cs = CS.ConfigurationSpace(seed=42)
 
-    # shared across all models
-    cs.add([
-        CSH.UniformFloatHyperparameter("lr",           lower=1e-4, upper=1e-2, log=True),
-        CSH.UniformFloatHyperparameter("weight_decay", lower=1e-5, upper=1e-3, log=True),
-        CSH.UniformIntegerHyperparameter("rnn_units",  lower=32,   upper=128),
-        CSH.UniformIntegerHyperparameter("num_layers", lower=1,    upper=3),
-    ])
 
-    if model_name == "AGCRN":
-        cs.add([
-            CSH.UniformIntegerHyperparameter("embed_dim", lower=4,   upper=20),
-            CSH.UniformIntegerHyperparameter("cheb_k",    lower=2,   upper=4),
-        ])
+from ConfigSpace import ConfigurationSpace, Categorical, Float, Integer
 
-    elif model_name == "DCRNN":
-        cs.add([
-            CSH.UniformIntegerHyperparameter("max_diffusion_step", lower=1, upper=3),
-        ])
+def get_search_space(model_name):
+    model_name = model_name.lower()
 
-    elif model_name == "STGCN":
-        cs.add([
-            CSH.UniformIntegerHyperparameter("K",       lower=2,  upper=5),
-            CSH.UniformFloatHyperparameter("dropout",   lower=0.0, upper=0.5),
-        ])
+    cs = ConfigurationSpace(seed=42)
+
+    # Shared 
+    cs.add(Float('lr', bounds=(1e-4, 1e-2), log=True))
+    cs.add(Categorical('batch_size', [16, 32, 64, 128]))
+    cs.add(Float('dropout', bounds=(0.0, 0.5)))
+    cs.add(Categorical('hidden_size', [16, 32, 64,128]))
+    cs.add(Categorical('ff_size', [128, 256,512]))
+
+    if model_name == 'graphwavenet':
+        cs.add(Integer('n_layers', bounds=(4, 10)))
+        cs.add(Integer('emb_size', bounds=(5, 20)))
+        cs.add(Categorical('learned_adjacency', [True, False], default=True))
+
+    elif model_name == 'dcrnn':
+        cs.add(Integer('kernel_size', bounds=(1, 3)))
+        cs.add(Integer('n_layers', bounds=(1, 3)))
+
+    elif model_name == 'stgcn':
+        cs.add(Integer('n_layers', bounds=(1, 4)))
+        cs.add(Integer('temporal_kernel_size', bounds=(2, 5)))
+        cs.add(Integer('spatial_kernel_size', bounds=(1, 3)))
+        
+    elif model_name == 'agcrn':
+            cs.add(Integer('n_layers', bounds=(1, 3)))
+            cs.add(Integer('emb_size', bounds=(5, 20)))
+    else:
+        raise ValueError(f"Unknown model '{model_name}'")
 
     return cs
