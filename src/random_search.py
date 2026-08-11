@@ -70,6 +70,9 @@ def run_random_search(
             )
 
             test_mae = test_results[0].get('test_mae', None)
+            mae_15 = test_results[0].get('test_mae_at_15', None)
+            mae_30 = test_results[0].get('test_mae_at_30', None)
+            mae_60 = test_results[0].get('test_mae_at_60', None)
 
             trial_record = {
                 'trial': i,
@@ -77,7 +80,9 @@ def run_random_search(
                 'batch_size': batch_size,
                 'model_kwargs': model_kwargs,
                 'test_mae': test_mae,
-                'test_results': test_results[0],
+                'mae_at_15': mae_15,
+                'mae_at_30': mae_30,
+                'mae_at_60': mae_60,
             }
 
         except Exception as e:

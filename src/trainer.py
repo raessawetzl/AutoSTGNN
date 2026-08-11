@@ -82,59 +82,6 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
     return model, kwargs
 
 
-def evaluate_horizons(predictor, test_loader, horizons=(3, 6, 12), device=None):
-    """
-    Runs the trained model on the test set once, then computes MAE at each
-    specified horizon step by slicing the full prediction sequence.
-
-    horizons are 1-indexed (horizon=3 means '3 steps ahead', i.e. index 2).
-    """
-    if device is None:
-        device = next(predictor.model.parameters()).device
-
-    predictor.model.eval()
-    predictor.model.to(device)
-
-    all_preds = []
-    all_targets = []
-    all_masks = []
-
-    with torch.no_grad():
-        for batch in test_loader:
-            batch = batch.to(device)
-
-            preds = predictor.model(**batch.input)  # shape: [batch, horizon, nodes, channels]
-            targets = batch.target.y
-            mask = getattr(batch.target, 'mask', None)
-
-            all_preds.append(preds.cpu())
-            all_targets.append(targets.cpu())
-            if mask is not None:
-                all_masks.append(mask.cpu())
-
-    all_preds = torch.cat(all_preds, dim=0)
-    all_targets = torch.cat(all_targets, dim=0)
-    all_masks = torch.cat(all_masks, dim=0) if all_masks else None
-
-    results = {}
-    mae_fn = MaskedMAE()
-
-    for h in horizons:
-        idx = h - 1  # convert 1-indexed horizon to 0-indexed step
-
-        preds_h = all_preds[:, idx, :, :]
-        targets_h = all_targets[:, idx, :, :]
-        mask_h = all_masks[:, idx, :, :] if all_masks is not None else None
-
-        if mask_h is not None:
-            mae = mae_fn(preds_h, targets_h, mask_h)
-        else:
-            mae = mae_fn(preds_h, targets_h)
-
-        results[f'mae_horizon_{h}'] = mae.item()
-        print(f"Horizon {h} ({h * 5} min): MAE = {mae.item():.4f}")
-
-    return results
 def train(
     dataset_name='metrla',
     model_name='dcrnn',
@@ -169,12 +116,21 @@ def train(
     )
     print(f"Training {model_name} with: {used_kwargs}")
 
+    loss_fn = MaskedMAE()
+    metrics = {
+        'mae': MaskedMAE(),
+        'mape': MaskedMAPE(),
+        'mae_at_15': MaskedMAE(at=2),   
+        'mae_at_30': MaskedMAE(at=5),   
+        'mae_at_60': MaskedMAE(at=11),  
+    }
+
     predictor = Predictor(
         model=model,
         optim_class=torch.optim.Adam,
         optim_kwargs={'lr': lr},
-        loss_fn=MaskedMAE(),
-        metrics={'mae': MaskedMAE(), 'mape': MaskedMAPE()}
+        loss_fn=loss_fn,
+        metrics=metrics
     )
 
     trainer = pl.Trainer(

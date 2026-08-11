@@ -1,0 +1,162 @@
+[
+  {
+    "trial": 0,
+    "lr": 0.0001112051372,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.3898455001364,
+      "emb_size": 9,
+      "ff_size": 256,
+      "hidden_size": 32,
+      "learned_adjacency": false,
+      "n_layers": 10
+    },
+    "error": "IncompleteRead(587 bytes read)",
+    "trial_duration_sec": 38745.66230797768,
+    "elapsed_since_start_sec": 38745.66230797768
+  },
+  {
+    "trial": 1,
+    "lr": 0.0011208547084,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.2984250789732,
+      "emb_size": 8,
+      "ff_size": 128,
+      "hidden_size": 128,
+      "learned_adjacency": false,
+      "n_layers": 9
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.13087773323059082,
+    "elapsed_since_start_sec": 38745.93641805649
+  },
+  {
+    "trial": 2,
+    "lr": 0.000630553504,
+    "batch_size": 16,
+    "model_kwargs": {
+      "dropout": 0.2229163764268,
+      "emb_size": 12,
+      "ff_size": 256,
+      "hidden_size": 128,
+      "learned_adjacency": false,
+      "n_layers": 9
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.003605365753173828,
+    "elapsed_since_start_sec": 38745.98631429672
+  },
+  {
+    "trial": 3,
+    "lr": 0.0001239742034,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.049987457909,
+      "emb_size": 12,
+      "ff_size": 256,
+      "hidden_size": 16,
+      "learned_adjacency": true,
+      "n_layers": 10
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.001886129379272461,
+    "elapsed_since_start_sec": 38746.04662513733
+  },
+  {
+    "trial": 4,
+    "lr": 0.0088615774525,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.2296244459829,
+      "emb_size": 7,
+      "ff_size": 256,
+      "hidden_size": 16,
+      "learned_adjacency": false,
+      "n_layers": 9
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.0035524368286132812,
+    "elapsed_since_start_sec": 38746.086812734604
+  },
+  {
+    "trial": 5,
+    "lr": 0.0002314579891,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.233381446624,
+      "emb_size": 13,
+      "ff_size": 128,
+      "hidden_size": 128,
+      "learned_adjacency": true,
+      "n_layers": 8
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.002194643020629883,
+    "elapsed_since_start_sec": 38746.130620241165
+  },
+  {
+    "trial": 6,
+    "lr": 0.0032413268042,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.4299702033682,
+      "emb_size": 16,
+      "ff_size": 256,
+      "hidden_size": 64,
+      "learned_adjacency": true,
+      "n_layers": 10
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.005125284194946289,
+    "elapsed_since_start_sec": 38746.19621229172
+  },
+  {
+    "trial": 7,
+    "lr": 0.0007084541505,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.3401537692939,
+      "emb_size": 18,
+      "ff_size": 128,
+      "hidden_size": 128,
+      "learned_adjacency": false,
+      "n_layers": 5
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.0025627613067626953,
+    "elapsed_since_start_sec": 38746.252900362015
+  },
+  {
+    "trial": 8,
+    "lr": 0.0002605453495,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.2252496259848,
+      "emb_size": 6,
+      "ff_size": 256,
+      "hidden_size": 16,
+      "learned_adjacency": true,
+      "n_layers": 5
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.004101753234863281,
+    "elapsed_since_start_sec": 38746.29634833336
+  },
+  {
+    "trial": 9,
+    "lr": 0.001365842605,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.0066324805799,
+      "emb_size": 14,
+      "ff_size": 512,
+      "hidden_size": 128,
+      "learned_adjacency": false,
+      "n_layers": 7
+    },
+    "error": "did not find a match in any of xarray's currently installed IO backends ['scipy']. Consider explicitly selecting one of the installed engines via the ``engine`` parameter, or installing additional IO dependencies, see:\nhttps://docs.xarray.dev/en/stable/getting-started-guide/installing.html\nhttps://docs.xarray.dev/en/stable/user-guide/io.html",
+    "trial_duration_sec": 0.003954887390136719,
+    "elapsed_since_start_sec": 38746.34021806717
+  }
+]
