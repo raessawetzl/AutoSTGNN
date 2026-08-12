@@ -1,4 +1,6 @@
 import os
+import random
+import numpy as np
 import torch
 import pytorch_lightning as pl
 from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel, AGCRNModel
@@ -56,6 +58,14 @@ DEFAULT_MODEL_KWARGS = {
 }
 
 
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    pl.seed_everything(seed, workers=True)
+
+
 def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwargs=None):
     model_name = model_name.lower()
     if model_name not in MODEL_MAP:
@@ -95,7 +105,10 @@ def train(
     model_kwargs=None,
     checkpoint_dir='./checkpoints',
     save_best=True,
+    seed=42,
 ):
+    set_seed(seed)
+
     train_loader, val_loader, test_loader = get_dataloaders(
         dataset_name=dataset_name,
         window=window,
