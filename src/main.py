@@ -4,7 +4,7 @@ def main():
         model_name='stgcn',
         dataset_name='MetrLA',
         n_trials=20,
-        max_epochs=15,
+        max_epochs=5, #15
     )
 if __name__ == "__main__":
         main()
