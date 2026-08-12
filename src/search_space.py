@@ -1,70 +1,39 @@
-import ConfigSpace as CS
-import ConfigSpace.hyperparameters as CSH
+from ConfigSpace import ConfigurationSpace, Categorical, Float, Integer
 
-# reusable search space 
-def get_shared_config_space():
-    """
-    hyperparameters shared across STGCN, DCRNN and Graph WaveNet.
-    all three models use this as their base search space.
-    training budget (num_epochs) is controlled by BOHB externally 
-    """
-            
-    cs = CS.ConfigurationSpace(seed=42) # search space container 
+def get_search_space(model_name):
+    model_name = model_name.lower()
 
-    # learning rate
-    learning_rate = CSH.UniformFloatHyperparameter(
-        name='learning_rate',
-        lower=1e-4,
-        upper=1e-2,
-        log=True # BOHB will search more densely at the smaller end than the larger end
-    )
+    cs = ConfigurationSpace(seed=42)
 
-    # number of graph convolution layers
-    num_layers = CSH.UniformIntegerHyperparameter(
-        name='num_layers',
-        lower=1,
-        upper=4
-    )
+    cs.add(Float('lr', bounds=(1e-4, 1e-2), log=True))
+    cs.add(Categorical('batch_size', [16, 32, 64, 128]))
+    cs.add(Categorical('hidden_size', [16, 32, 64, 128]))
 
-    # hidden units
-    hidden_units = CSH.UniformIntegerHyperparameter(
-        name='hidden_units',
-        lower=32,
-        upper=256
-    )
+    if model_name == 'graphwavenet':
+        cs.add(Float('dropout', bounds=(0.0, 0.5)))
+        cs.add(Categorical('ff_size', [128, 256, 512]))
+        cs.add(Integer('n_layers', bounds=(4, 10)))
+        cs.add(Integer('emb_size', bounds=(5, 20)))
+        cs.add(Categorical('learned_adjacency', [True, False], default=True))
 
-    # dropout rate
-    dropout = CSH.UniformFloatHyperparameter(
-        name='dropout',
-        lower=0.0,
-        upper=0.5
-    )
+    elif model_name == 'dcrnn':
+        cs.add(Float('dropout', bounds=(0.0, 0.5)))
+        cs.add(Categorical('ff_size', [128, 256, 512]))
+        cs.add(Integer('kernel_size', bounds=(1, 3)))
+        cs.add(Integer('n_layers', bounds=(1, 3)))
 
-    # batch size
-    batch_size = CSH.CategoricalHyperparameter(
-        name='batch_size',
-        choices=[16, 32, 64]
-    )
+    elif model_name == 'stgcn':
+        cs.add(Float('dropout', bounds=(0.0, 0.5)))
+        cs.add(Categorical('ff_size', [128, 256, 512]))
+        cs.add(Integer('n_layers', bounds=(1, 4)))
+        cs.add(Integer('temporal_kernel_size', bounds=(2, 5)))
+        cs.add(Integer('spatial_kernel_size', bounds=(1, 3)))
 
-    # for L2 regularisation
-    weight_decay = CSH.UniformFloatHyperparameter(
-        name='weight_decay',
-        lower=1e-5,
-        upper=1e-3,
-        log=True
-    )
+    elif model_name == 'agcrn':
+        cs.add(Integer('n_layers', bounds=(1, 3)))
+        cs.add(Integer('emb_size', bounds=(5, 20)))
 
-    # add hyperparameters to the search space
-    cs.add_hyperparameters([
-        learning_rate,
-        num_layers,
-        hidden_units,
-        dropout,
-        batch_size, 
-        weight_decay
-    ])
+    else:
+        raise ValueError(f"Unknown model '{model_name}'")
 
     return cs
-
-def get_stgcn_config_space() -> CS.ConfigurationSpace:
-    return get_shared_config_space()
