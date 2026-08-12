@@ -1,9 +1,10 @@
+import os
 import torch
 import pytorch_lightning as pl
 from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel, AGCRNModel
 from tsl.engines import Predictor
 from tsl.metrics.torch import MaskedMAE, MaskedMAPE
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataloader import get_dataloaders
 
@@ -92,6 +93,8 @@ def train(
     max_epochs=50,
     base_root='./data',
     model_kwargs=None,
+    checkpoint_dir='./checkpoints',
+    save_best=True,
 ):
     train_loader, val_loader, test_loader = get_dataloaders(
         dataset_name=dataset_name,
@@ -120,9 +123,9 @@ def train(
     metrics = {
         'mae': MaskedMAE(),
         'mape': MaskedMAPE(),
-        'mae_at_15': MaskedMAE(at=2),   
-        'mae_at_30': MaskedMAE(at=5),   
-        'mae_at_60': MaskedMAE(at=11),  
+        'mae_at_15': MaskedMAE(at=2),
+        'mae_at_30': MaskedMAE(at=5),
+        'mae_at_60': MaskedMAE(at=11),
     }
 
     predictor = Predictor(
@@ -133,14 +136,35 @@ def train(
         metrics=metrics
     )
 
+    callbacks = [EarlyStopping(monitor='val_mae', patience=5, mode='min')]
+
+    checkpoint_callback = None
+    if save_best:
+        run_dir = os.path.join(checkpoint_dir, dataset_name, model_name)
+        os.makedirs(run_dir, exist_ok=True)
+
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=run_dir,
+            filename='best-{epoch:02d}-{val_mae:.4f}',
+            monitor='val_mae',
+            mode='min',
+            save_top_k=1,
+            save_last=False,
+        )
+        callbacks.append(checkpoint_callback)
+
     trainer = pl.Trainer(
         max_epochs=max_epochs,
         accelerator='auto',
         devices=1,
-        callbacks=[EarlyStopping(monitor='val_mae', patience=5, mode='min')],
+        callbacks=callbacks,
     )
 
     trainer.fit(predictor, train_dataloaders=train_loader, val_dataloaders=val_loader)
     test_results = trainer.test(predictor, dataloaders=test_loader)
 
-    return predictor, trainer, test_results
+    best_model_path = checkpoint_callback.best_model_path if checkpoint_callback else None
+    if best_model_path:
+        print(f"Best model saved to: {best_model_path}")
+
+    return predictor, trainer, test_results, best_model_path

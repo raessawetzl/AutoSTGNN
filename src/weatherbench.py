@@ -1,56 +1,57 @@
-# weatherbench.py
 import os
+import glob
+import zipfile
+import urllib.request
+
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 from tsl import logger
 from tsl.ops.similarities import gaussian_kernel
 from tsl.datasets.prototypes import DatetimeDataset
 
 
-class WeatherBench(DatetimeDataset):
-    r"""WeatherBench: a benchmark dataset for data-driven weather
-    forecasting, providing regridded ERA5 reanalysis data on a coarse
-    global grid.
+TUM_BASE = 'https://dataserv.ub.tum.de/s/m1524895/download'
 
-    Introduced in "WeatherBench: A benchmark dataset for data-driven
-    weather forecasting" (Rasp et al., 2020, https://arxiv.org/abs/2002.00469).
 
-    Each grid cell (lat/lon point) is treated as a node; the selected
-    weather variable(s) are treated as channels.
+class WeatherBench1(DatetimeDataset):
+    r"""Original WeatherBench (Rasp et al. 2020) benchmark dataset -
+    ERA5 reanalysis data regridded to a coarse global grid, pre-packaged
+    for ML benchmarking.
+
+    Downloads and caches a single variable's NetCDF data from the
+    official TUM data server (https://dataserv.ub.tum.de/s/m1524895).
 
     Args:
-        root (str, optional): Root folder for data download/caching.
-        variable (str): Which weather variable to load, e.g.
-            'temperature', 'geopotential', '2m_temperature'.
-            (default: '2m_temperature')
-        resolution (str): Grid resolution, e.g. '5.625deg' (32x64 grid,
-            the standard low-res WeatherBench setup) or '1.40625deg'.
+        root (str): Root folder for downloading/caching raw files.
+        variable (str): Variable name matching WeatherBench's folder
+            naming, e.g. 'geopotential_500', 'temperature_850',
+            '2m_temperature', '10m_u_component_of_wind'.
+            (default: 'geopotential_500')
+        resolution (str): One of '5.625deg' (32x64 grid, ~600km),
+            '2.8125deg' (64x128, ~300km), '1.40625deg' (128x256, ~150km).
             (default: '5.625deg')
-        year_range (tuple, optional): (start_year, end_year) to subset
-            the data. If None, loads the full available range.
-            (default: None)
-        freq (str, optional): Resampling frequency, e.g. '6H', '24H'.
-            (default: '6H')
+        start_time (str, optional): ISO date to start the time slice.
+        end_time (str, optional): ISO date to end the time slice.
+        freq (str, optional): Resampling frequency. Native data is
+            hourly for most variables. (default: None, keeps native freq)
     """
-
-    # Public WeatherBench data (Rasp et al.) is hosted on GCS as NetCDF/Zarr,
-    # mirrored via the WeatherBench GitHub project. Update this base URL if it
-    # moves - check https://github.com/pangeo-data/WeatherBench for current links.
-    base_url = "https://dataserv.ub.tum.de/s/m1524895/download"
 
     similarity_options = {'distance'}
 
     def __init__(self,
-                 root=None,
-                 variable='2m_temperature',
+                 root='./data/weatherbench1',
+                 variable='geopotential_500',
                  resolution='5.625deg',
-                 year_range=None,
-                 freq='6H'):
+                 start_time=None,
+                 end_time=None,
+                 freq=None):
+        self.root = root
         self.variable = variable
         self.resolution = resolution
-        self.year_range = year_range
-        self.root = root
+        self.start_time = start_time
+        self.end_time = end_time
 
         df, mask, lat_lon = self.load(freq=freq)
 
@@ -60,65 +61,88 @@ class WeatherBench(DatetimeDataset):
                           similarity_score='distance',
                           temporal_aggregation='mean',
                           spatial_aggregation='mean',
-                          name='WeatherBench')
+                          name='WeatherBench1')
 
-        # store grid coordinates as a static attribute, used later for
-        # building a distance-based adjacency graph
         self.add_covariate('lat_lon', lat_lon, pattern='n c')
 
     @property
-    def raw_file_names(self):
-        return [f'{self.variable}_{self.resolution}.nc']
+    def raw_dir(self):
+        return os.path.join(self.root, self.resolution, self.variable)
 
     @property
-    def required_file_names(self):
-        return self.raw_file_names
+    def zip_filename(self):
+        return f'{self.variable}_{self.resolution}.zip'
 
-    def download(self) -> None:
-        import urllib.request
-        os.makedirs(self.root_dir, exist_ok=True)
-        fname = self.raw_file_names[0]
-        dest = os.path.join(self.root_dir, fname)
-        if not os.path.exists(dest):
-            logger.info(f"Downloading WeatherBench variable "
-                        f"'{self.variable}' at {self.resolution} ...")
-            # NOTE: verify the exact per-variable download path against
-            # the current WeatherBench data repository before relying on
-            # this in production - the public mirror's URL structure has
-            # changed over the project's history.
-            url = f"{self.base_url}/{fname}"
-            urllib.request.urlretrieve(url, dest)
-        else:
-            logger.info("Raw file already present, skipping download.")
+    def download(self):
+        os.makedirs(self.raw_dir, exist_ok=True)
+        zip_path = os.path.join(self.raw_dir, self.zip_filename)
+
+        nc_files_already_present = glob.glob(
+            os.path.join(self.raw_dir, '*.nc'))
+        if nc_files_already_present:
+            logger.info(f"Found {len(nc_files_already_present)} existing "
+                        f".nc files, skipping download.")
+            return
+
+        # Confirmed URL pattern from the official pangeo-data/WeatherBench
+        # GitHub README - scoped to a single variable's folder.
+        url = (f"{TUM_BASE}?path=/{self.resolution}/{self.variable}"
+               f"&files={self.zip_filename}")
+
+        logger.info(f"Downloading: {url}")
+        logger.info("NOTE: this can be several hundred MB to a few GB "
+                     "depending on variable/resolution - not instant.")
+        urllib.request.urlretrieve(url, zip_path)
+
+        logger.info(f"Unzipping {zip_path} ...")
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(self.raw_dir)
 
     def load_raw(self):
-        import xarray as xr
-        self.maybe_download()
-        path = os.path.join(self.root_dir, self.raw_file_names[0])
-        ds = xr.open_dataset(path)
+        self.download()
+        nc_files = sorted(glob.glob(os.path.join(self.raw_dir, '*.nc')))
+        if not nc_files:
+            raise FileNotFoundError(
+                f"No .nc files found in {self.raw_dir} after download/unzip. "
+                f"Check that variable='{self.variable}' and "
+                f"resolution='{self.resolution}' are valid - see "
+                f"https://github.com/pangeo-data/WeatherBench for the "
+                f"exact folder/variable naming."
+            )
+        logger.info(f"Found {len(nc_files)} .nc files, opening as multi-file dataset")
+        ds = xr.open_mfdataset(nc_files, combine='by_coords')
         return ds
 
-    def load(self, freq='6H'):
+    def load(self, freq=None):
         ds = self.load_raw()
 
-        # WeatherBench variables are typically stored as [time, lat, lon].
-        # Flatten the spatial grid into a single "node" dimension.
-        var_name = list(ds.data_vars)[0] if self.variable not in ds.data_vars \
-            else self.variable
-        da = ds[var_name]
+        var_names = list(ds.data_vars)
+        if len(var_names) == 1:
+            da = ds[var_names[0]]
+        elif self.variable in ds.data_vars:
+            da = ds[self.variable]
+        else:
+            raise ValueError(
+                f"Could not find variable '{self.variable}' in loaded "
+                f"dataset. Available: {var_names}"
+            )
 
-        if self.year_range is not None:
-            start, end = self.year_range
-            da = da.sel(time=slice(f"{start}-01-01", f"{end}-12-31"))
+        if self.start_time is not None or self.end_time is not None:
+            da = da.sel(time=slice(self.start_time, self.end_time))
 
-        lat = ds['lat'].values
-        lon = ds['lon'].values
+        # WeatherBench1's 5.625deg grid is already small (32x64=2048 nodes)
+        # so no coarsening needed by default, unlike WB2's 0.25deg grid.
+
+        lat = da['lat'].values
+        lon = da['lon'].values
         lat_grid, lon_grid = np.meshgrid(lat, lon, indexing='ij')
         lat_lon = np.stack([lat_grid.ravel(), lon_grid.ravel()], axis=-1)
 
-        values = da.values.reshape(da.shape[0], -1)  # [time, n_nodes]
-        time_index = pd.to_datetime(da['time'].values)
+        logger.info("Loading data into memory...")
+        values = da.values
+        values = values.reshape(values.shape[0], -1)
 
+        time_index = pd.to_datetime(da['time'].values)
         df = pd.DataFrame(values, index=time_index)
 
         if freq is not None:
@@ -132,8 +156,6 @@ class WeatherBench(DatetimeDataset):
     def compute_similarity(self, method: str, **kwargs):
         if method == 'distance':
             lat_lon = self.lat_lon
-            # haversine-ish approx: for a coarse regular grid, euclidean
-            # distance on lat/lon is a reasonable, cheap proxy
             from scipy.spatial.distance import cdist
             dist = cdist(lat_lon, lat_lon, metric='euclidean')
             theta = np.std(dist)

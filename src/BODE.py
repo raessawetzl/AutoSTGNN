@@ -2,91 +2,57 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import copy
 import json
+import time
 import argparse
+from datetime import datetime
+
 import numpy as np
-import torch
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 from scipy.stats import norm
 
-import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 
-from trainer import train  # tsl-based train() from your trainer.py
+from search_space import get_search_space
+from trainer import train
+from utils import results_to_excel
+
+
+def to_native(value):
+    if isinstance(value, dict):
+        return {k: to_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [to_native(v) for v in value]
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
 
 
 # ---------------------------------------------------------------------------
-# ConfigSpace — one space per model, matching each tsl model's real signature
-# ---------------------------------------------------------------------------
-def get_config_space(model_name):
-    model_name = model_name.lower()
-    cs = CS.ConfigurationSpace(seed=42)
-
-    # lr is shared and always tuned
-    cs.add_hyperparameters([
-        CSH.UniformFloatHyperparameter("lr", lower=1e-4, upper=1e-2, log=True),
-    ])
-
-    if model_name == "graphwavenet":
-        cs.add_hyperparameters([
-            CSH.CategoricalHyperparameter("hidden_size", [16, 32, 64]),
-            CSH.CategoricalHyperparameter("ff_size", [128, 256, 512]),
-            CSH.UniformIntegerHyperparameter("n_layers", lower=4, upper=10),
-            CSH.UniformIntegerHyperparameter("emb_size", lower=5, upper=20),
-            CSH.UniformFloatHyperparameter("dropout", lower=0.0, upper=0.5),
-        ])
-
-    elif model_name == "dcrnn":
-        cs.add_hyperparameters([
-            CSH.CategoricalHyperparameter("hidden_size", [16, 32, 64]),
-            CSH.UniformIntegerHyperparameter("kernel_size", lower=1, upper=3),
-            CSH.UniformIntegerHyperparameter("n_layers", lower=1, upper=3),
-            CSH.UniformFloatHyperparameter("dropout", lower=0.0, upper=0.5),
-        ])
-
-    elif model_name == "stgcn":
-        cs.add_hyperparameters([
-            CSH.CategoricalHyperparameter("hidden_size", [32, 64, 128]),
-            CSH.CategoricalHyperparameter("ff_size", [64, 128, 256]),
-            CSH.UniformIntegerHyperparameter("n_layers", lower=1, upper=4),
-            CSH.UniformIntegerHyperparameter("temporal_kernel_size", lower=2, upper=5),
-            CSH.UniformIntegerHyperparameter("spatial_kernel_size", lower=1, upper=3),
-            CSH.UniformFloatHyperparameter("dropout", lower=0.0, upper=0.5),
-        ])
-
-    elif model_name == "agcrn":
-        # NOTE: dropout not included here — not confirmed as an AGCRNModel kwarg.
-        # Verify with inspect.signature(AGCRNModel.__init__) before relying on this.
-        cs.add_hyperparameters([
-            CSH.CategoricalHyperparameter("hidden_size", [16, 32, 64]),
-            CSH.UniformIntegerHyperparameter("emb_size", lower=5, upper=20),
-            CSH.UniformIntegerHyperparameter("n_layers", lower=1, upper=3),
-        ])
-
-    else:
-        raise ValueError(f"Unknown model '{model_name}'")
-
-    return cs
-
-
-# ---------------------------------------------------------------------------
-# Config <-> vector conversion — now handles Categorical as well as Uniform types
+# Config <-> vector conversion — driven by the shared search_space.py
 # ---------------------------------------------------------------------------
 def cs_to_bounds(cs):
-    """Returns ordered list of hyperparameter descriptors for DE to operate on."""
+    """Turn a ConfigurationSpace into an ordered list of descriptors for DE."""
     bounds = []
-    for name, hp in cs.get_hyperparameters_dict().items():
+    for hp in list(cs.values()):
         if isinstance(hp, CSH.UniformFloatHyperparameter):
-            bounds.append({'name': name, 'type': 'float',
-                            'lower': hp.lower, 'upper': hp.upper, 'log': hp.log})
+            bounds.append({'name': hp.name, 'type': 'float',
+                           'lower': hp.lower, 'upper': hp.upper, 'log': hp.log})
         elif isinstance(hp, CSH.UniformIntegerHyperparameter):
-            bounds.append({'name': name, 'type': 'int',
-                            'lower': float(hp.lower), 'upper': float(hp.upper), 'log': hp.log})
+            bounds.append({'name': hp.name, 'type': 'int',
+                           'lower': float(hp.lower), 'upper': float(hp.upper), 'log': hp.log})
         elif isinstance(hp, CSH.CategoricalHyperparameter):
-            bounds.append({'name': name, 'type': 'cat', 'choices': list(hp.choices)})
+            bounds.append({'name': hp.name, 'type': 'cat', 'choices': list(hp.choices)})
+        else:
+            raise TypeError(f"Unsupported hyperparameter type for '{hp.name}': {type(hp)}")
     return bounds
 
 
@@ -135,7 +101,7 @@ def sample_random_vector(bounds):
 
 
 # ---------------------------------------------------------------------------
-# Expected Improvement acquisition function (unchanged)
+# Expected Improvement acquisition function
 # ---------------------------------------------------------------------------
 def expected_improvement(X_new, gp, y_best, xi=0.01):
     mu, sigma = gp.predict(X_new, return_std=True)
@@ -147,7 +113,7 @@ def expected_improvement(X_new, gp, y_best, xi=0.01):
 
 
 # ---------------------------------------------------------------------------
-# Differential Evolution inner loop to maximise EI (unchanged — Algorithm 2, lines 4-10)
+# Differential Evolution inner loop to maximise EI (Algorithm 2, lines 4-10)
 # ---------------------------------------------------------------------------
 def de_maximise_ei(gp, y_best, bounds, n_pop=10, k=20, f=0.8, p_c=0.9):
     D = len(bounds)
@@ -187,11 +153,13 @@ def de_maximise_ei(gp, y_best, bounds, n_pop=10, k=20, f=0.8, p_c=0.9):
 
 
 # ---------------------------------------------------------------------------
-# Single training run — now delegates to trainer.train() (tsl Predictor/Trainer)
+# Single training run — delegates to trainer.train() (tsl Predictor/Trainer)
+# Returns (objective_mae, metrics) where metrics mirrors the random_search fields.
 # ---------------------------------------------------------------------------
 def train_one_run(base_args, config, dataset_name):
     config = dict(config)  # avoid mutating caller's dict
     lr = float(config.pop('lr'))
+    batch_size = int(config.pop('batch_size'))
     model_kwargs = config  # everything remaining is model-specific
 
     predictor, pl_trainer, test_results = train(
@@ -199,37 +167,92 @@ def train_one_run(base_args, config, dataset_name):
         model_name=base_args.model,
         window=base_args.window,
         horizon=base_args.horizon,
-        batch_size=base_args.batch_size,
+        batch_size=batch_size,
         lr=lr,
         max_epochs=base_args.epochs,
         base_root=base_args.base_root,
         model_kwargs=model_kwargs,
     )
 
-    # Lightning logs 'val_mae' automatically from Predictor's metrics dict during validation.
-    # Falls back to test_mae if val_mae wasn't logged for some reason.
+    test_mae = test_results[0].get('test_mae', None)
+    metrics = {
+        'test_mae': test_mae,
+        'mae_at_15': test_results[0].get('test_mae_at_15', None),
+        'mae_at_30': test_results[0].get('test_mae_at_30', None),
+        'mae_at_60': test_results[0].get('test_mae_at_60', None),
+    }
+
+    # Objective driving the GP: prefer logged val_mae, fall back to test_mae.
     val_mae = pl_trainer.callback_metrics.get('val_mae')
     if val_mae is not None:
-        val_mae = float(val_mae)
+        objective = float(val_mae)
+    elif test_mae is not None:
+        objective = float(test_mae)
     else:
-        val_mae = float(test_results[0].get('test_mae', float('inf')))
+        objective = float('inf')
 
-    return val_mae
+    return objective, metrics
 
 
 # ---------------------------------------------------------------------------
-# BO-DE main loop (Algorithm 2) — structure unchanged
+# BO-DE main loop (Algorithm 2)
 # ---------------------------------------------------------------------------
-def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c):
-    cs = get_config_space(base_args.model)
+def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
+    os.makedirs(results_dir, exist_ok=True)
+
+    cs = get_search_space(base_args.model)
     bounds = cs_to_bounds(cs)
 
     X_obs = []
     y_obs = []
-    results = []
+    results_log = []
 
     best_mae = float("inf")
     best_config = None
+
+    timestamp = datetime.now().strftime('%Y%m%d')
+    out_path = os.path.join(
+        results_dir, f"{base_args.model}_{dataset_name}_bode_{timestamp}.json"
+    )
+
+    def record_trial(phase, iteration, config, objective, metrics, trial_start):
+        """Append a random_search-style record, then persist JSON + Excel."""
+        nonlocal best_mae, best_config
+        cfg = dict(config)
+        lr = cfg.pop('lr')
+        batch_size = cfg.pop('batch_size')
+        trial_end = time.time()
+
+        record = {
+            'trial': len(results_log),
+            'phase': phase,
+            'iteration': iteration,
+            'lr': lr,
+            'batch_size': batch_size,
+            'model_kwargs': cfg,
+            'val_mae': objective if np.isfinite(objective) else None,
+            'test_mae': metrics.get('test_mae') if metrics else None,
+            'mae_at_15': metrics.get('mae_at_15') if metrics else None,
+            'mae_at_30': metrics.get('mae_at_30') if metrics else None,
+            'mae_at_60': metrics.get('mae_at_60') if metrics else None,
+            'trial_duration_sec': trial_end - trial_start,
+            'elapsed_since_start_sec': trial_end - search_start,
+        }
+        results_log.append(record)
+
+        with open(out_path, 'w') as fp:
+            json.dump(to_native(results_log), fp, indent=2)
+        try:
+            results_to_excel(out_path)
+        except Exception as e:
+            print(f"Excel export failed: {e}", flush=True)
+
+        if np.isfinite(objective) and objective < best_mae:
+            best_mae = objective
+            best_config = config
+            print(f"*** New best val_mae: {best_mae:.4f} ***", flush=True)
+
+    search_start = time.time()
 
     print(f"=== Initialising with {n_init} random observations ===", flush=True)
     for i in range(n_init):
@@ -238,21 +261,17 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c):
         print(f"\n--- Init {i + 1}/{n_init} ---", flush=True)
         print("Config:", config, flush=True)
 
+        trial_start = time.time()
         try:
-            val_mae = train_one_run(base_args, config, dataset_name)
+            objective, metrics = train_one_run(base_args, config, dataset_name)
         except Exception as e:
             print(f"Init {i + 1} failed: {e}", flush=True)
-            val_mae = float("inf")
+            objective, metrics = float("inf"), None
 
         X_obs.append(vec)
-        y_obs.append(val_mae)
-        results.append({"phase": "init", "config": config, "val_mae": val_mae})
-        print(f"Init {i + 1} Val MAE: {val_mae:.4f}", flush=True)
-
-        if val_mae < best_mae:
-            best_mae = val_mae
-            best_config = config
-            print(f"*** New best: {best_mae:.4f} ***", flush=True)
+        y_obs.append(objective)
+        record_trial("init", None, config, objective, metrics, trial_start)
+        print(f"Init {i + 1} objective (val_mae): {objective:.4f}", flush=True)
 
     print(f"\n=== Starting BO-DE for {T} iterations ===", flush=True)
     gp = GaussianProcessRegressor(
@@ -280,23 +299,19 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c):
         config = vector_to_config(best_vec, bounds)
         print("Next config (from DE):", config, flush=True)
 
+        trial_start = time.time()
         try:
-            val_mae = train_one_run(base_args, config, dataset_name)
+            objective, metrics = train_one_run(base_args, config, dataset_name)
         except Exception as e:
             print(f"Iteration {t} failed: {e}", flush=True)
-            val_mae = float("inf")
+            objective, metrics = float("inf"), None
 
         X_obs.append(best_vec)
-        y_obs.append(val_mae)
-        results.append({"phase": "bode", "iteration": t, "config": config, "val_mae": val_mae})
-        print(f"Iteration {t} Val MAE: {val_mae:.4f}", flush=True)
+        y_obs.append(objective)
+        record_trial("bode", t, config, objective, metrics, trial_start)
+        print(f"Iteration {t} objective (val_mae): {objective:.4f}", flush=True)
 
-        if val_mae < best_mae:
-            best_mae = val_mae
-            best_config = config
-            print(f"*** New best: {best_mae:.4f} ***", flush=True)
-
-    return best_config, best_mae, results
+    return best_config, best_mae, results_log, out_path
 
 
 # ---------------------------------------------------------------------------
@@ -305,9 +320,9 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, required=True,
-                         choices=["metrla", "pemsbay", "pems04", "pems08"])
+                        choices=["metrla", "pemsbay", "pems04", "pems08"])
     parser.add_argument("--model", type=str, required=True,
-                         choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])
+                        choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])
 
     parser.add_argument("--T", type=int, default=20)
     parser.add_argument("--n_init", type=int, default=5)
@@ -319,8 +334,8 @@ def main():
     parser.add_argument("--window", type=int, default=12)
     parser.add_argument("--horizon", type=int, default=12)
     parser.add_argument("--epochs", type=int, default=30)
-    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--base_root", type=str, default="./data")
+    parser.add_argument("--results_dir", type=str, default="./search_results")
 
     args = parser.parse_args()
 
@@ -329,24 +344,18 @@ def main():
     print(f"BO-DE: T={args.T}, n_init={args.n_init}, n_pop={args.n_pop}, "
           f"k={args.k}, f={args.f}, p_c={args.p_c}", flush=True)
 
-    best_config, best_mae, results = bo_de(
+    best_config, best_mae, results_log, out_path = bo_de(
         args, args.dataset,
         T=args.T, n_init=args.n_init, n_pop=args.n_pop,
-        k=args.k, f=args.f, p_c=args.p_c
+        k=args.k, f=args.f, p_c=args.p_c,
+        results_dir=args.results_dir,
     )
 
     print("\n========== BO-DE Complete ==========", flush=True)
     print(f"Best Val MAE: {best_mae:.4f}", flush=True)
     print("Best Config:", best_config, flush=True)
-
-    results_path = f"{args.dataset}_{args.model}_bode_results.json"
-    with open(results_path, "w") as fp:
-        json.dump({
-            "best_config": best_config,
-            "best_mae": best_mae,
-            "trials": results
-        }, fp, indent=2)
-    print("Results saved to:", results_path, flush=True)
+    print("Results saved to:", out_path, flush=True)
+    print("Excel saved to:", out_path.replace('.json', '.xlsx'), flush=True)
 
 
 if __name__ == "__main__":
