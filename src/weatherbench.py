@@ -15,7 +15,7 @@ from tsl.datasets.prototypes import DatetimeDataset
 TUM_BASE = 'https://dataserv.ub.tum.de/s/m1524895/download'
 
 
-class WeatherBench1(DatetimeDataset):
+class WeatherBench(DatetimeDataset):
     r"""Original WeatherBench (Rasp et al. 2020) benchmark dataset -
     ERA5 reanalysis data regridded to a coarse global grid, pre-packaged
     for ML benchmarking.

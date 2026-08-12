@@ -43,6 +43,7 @@ DEFAULT_MODEL_KWARGS = {
         'activation': 'relu',
     },
     'stgcn': {
+        'exog_size': 0,
         'hidden_size': 64,
         'ff_size': 128,
         'n_layers': 1,
@@ -81,6 +82,9 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
         kwargs.update(model_kwargs)
 
     if model_name == 'graphwavenet' and kwargs.get('learned_adjacency', True):
+        kwargs['n_nodes'] = n_nodes
+        
+    if model_name == 'agcrn':
         kwargs['n_nodes'] = n_nodes
 
     model = model_cls(

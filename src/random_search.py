@@ -57,7 +57,7 @@ def run_random_search(
         trial_start = time.time()
 
         try:
-            predictor, trainer, test_results = train(
+            predictor, trainer, test_results, best_model_path = train(
                 dataset_name=dataset_name,
                 model_name=model_name,
                 window=window,
