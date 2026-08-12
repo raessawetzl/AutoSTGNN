@@ -5,7 +5,7 @@ from tsl.data import SpatioTemporalDataset
 from tsl.data.preprocessing import StandardScaler
 from tsl.data.datamodule import SpatioTemporalDataModule, TemporalSplitter
 
-from weatherbench import WeatherBench  # your custom dataset class
+from weatherbench import WeatherBench  
 
 
 DATASET_MAP = {
