@@ -80,6 +80,7 @@ def train(config, dataset_name="METR-LA", epochs=50, algorithm="random_search"):
             pred = model(x, edge_index, edge_weight)
             loss = loss_fn(pred[batch.mask], y[batch.mask])
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)  # prevent blowup 
             optimizer.step()
             train_losses.append(loss.item())
 
@@ -98,6 +99,11 @@ def train(config, dataset_name="METR-LA", epochs=50, algorithm="random_search"):
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
 
         print(f"  Epoch {epoch+1}/{epochs} — train MAE: {np.mean(train_losses):.4f}, val MAE: {val_mae:.4f}")
+
+    # safety check for bad runs
+    if best_state is None:
+        print("  This config diverged (NaN) — skipping it")
+        return float("nan")
 
     # reload best checkpoint before final test evaluation
     model.load_state_dict(best_state)
