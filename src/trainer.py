@@ -112,6 +112,7 @@ def train(
     seed=42,
 ):
     set_seed(seed)
+    torch.set_float32_matmul_precision('medium')
 
     train_loader, val_loader, test_loader = get_dataloaders(
         dataset_name=dataset_name,

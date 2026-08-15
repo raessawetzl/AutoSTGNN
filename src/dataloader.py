@@ -5,7 +5,6 @@ from tsl.data import SpatioTemporalDataset
 from tsl.data.preprocessing import StandardScaler
 from tsl.data.datamodule import SpatioTemporalDataModule, TemporalSplitter
 
-from weatherbench import WeatherBench  
 
 
 DATASET_MAP = {
@@ -13,7 +12,6 @@ DATASET_MAP = {
     'pemsbay': PemsBay,
     'pems04': PeMS04,
     'pems08': PeMS08,
-    'weatherbench': WeatherBench,
 }
 
 def get_dataloaders(
@@ -24,7 +22,8 @@ def get_dataloaders(
     val_len=0.1,
     test_len=0.2,
     conn_threshold=0.1,
-    base_root='./data'
+    base_root='./data',
+    workers = None,
 ):
     dataset_name = dataset_name.lower()
     if dataset_name not in DATASET_MAP:
@@ -58,12 +57,15 @@ def get_dataloaders(
     scalers = {'target': StandardScaler(axis=(0, 1))}
     splitter = TemporalSplitter(val_len=val_len, test_len=test_len)
 
+    if workers == None:
+        workers = max(1, os.cpu_count() - 1)
+
     dm = SpatioTemporalDataModule(
         dataset=torch_dataset,
         scalers=scalers,
         splitter=splitter,
         batch_size=batch_size,
-        workers=11,
+        workers=workers,
     )
 
     dm.setup()

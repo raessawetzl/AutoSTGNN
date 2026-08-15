@@ -162,7 +162,7 @@ def train_one_run(base_args, config, dataset_name):
     batch_size = int(config.pop('batch_size'))
     model_kwargs = config  # everything remaining is model-specific
 
-    predictor, pl_trainer, test_results = train(
+    predictor, pl_trainer, test_results, best_model_path = train(
         dataset_name=dataset_name,
         model_name=base_args.model,
         window=base_args.window,
@@ -180,6 +180,7 @@ def train_one_run(base_args, config, dataset_name):
         'mae_at_15': test_results[0].get('test_mae_at_15', None),
         'mae_at_30': test_results[0].get('test_mae_at_30', None),
         'mae_at_60': test_results[0].get('test_mae_at_60', None),
+        'best_model_path': best_model_path,
     }
 
     # Objective driving the GP: prefer logged val_mae, fall back to test_mae.
@@ -209,6 +210,7 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
 
     best_mae = float("inf")
     best_config = None
+    best_model_path = None
 
     timestamp = datetime.now().strftime('%Y%m%d')
     out_path = os.path.join(
@@ -217,7 +219,7 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
 
     def record_trial(phase, iteration, config, objective, metrics, trial_start):
         """Append a random_search-style record, then persist JSON + Excel."""
-        nonlocal best_mae, best_config
+        nonlocal best_mae, best_config, best_model_path
         cfg = dict(config)
         lr = cfg.pop('lr')
         batch_size = cfg.pop('batch_size')
@@ -235,6 +237,7 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
             'mae_at_15': metrics.get('mae_at_15') if metrics else None,
             'mae_at_30': metrics.get('mae_at_30') if metrics else None,
             'mae_at_60': metrics.get('mae_at_60') if metrics else None,
+            'best_model_path': metrics.get('best_model_path') if metrics else None,
             'trial_duration_sec': trial_end - trial_start,
             'elapsed_since_start_sec': trial_end - search_start,
         }
@@ -250,7 +253,10 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
         if np.isfinite(objective) and objective < best_mae:
             best_mae = objective
             best_config = config
+            best_model_path = metrics.get('best_model_path') if metrics else None
             print(f"*** New best val_mae: {best_mae:.4f} ***", flush=True)
+            if best_model_path:
+                print(f"    checkpoint: {best_model_path}", flush=True)
 
     search_start = time.time()
 
@@ -311,7 +317,55 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
         record_trial("bode", t, config, objective, metrics, trial_start)
         print(f"Iteration {t} objective (val_mae): {objective:.4f}", flush=True)
 
-    return best_config, best_mae, results_log, out_path
+    return best_config, best_mae, best_model_path, results_log, out_path
+
+
+# ---------------------------------------------------------------------------
+# Programmatic entry point — mirrors random_search.run_random_search()
+# ---------------------------------------------------------------------------
+def run_bode(
+    model_name='graphwavenet',
+    dataset_name='metrla',
+    T=20,
+    n_init=5,
+    n_pop=10,
+    k=20,
+    f=0.8,
+    p_c=0.9,
+    window=12,
+    horizon=12,
+    max_epochs=30,
+    base_root='./data',
+    results_dir='./search_results',
+):
+    base_args = argparse.Namespace(
+        model=model_name,
+        window=window,
+        horizon=horizon,
+        epochs=max_epochs,
+        base_root=base_root,
+    )
+
+    print("Model:", model_name, flush=True)
+    print("Dataset:", dataset_name, flush=True)
+    print(f"BO-DE: T={T}, n_init={n_init}, n_pop={n_pop}, "
+          f"k={k}, f={f}, p_c={p_c}", flush=True)
+
+    best_config, best_mae, best_model_path, results_log, out_path = bo_de(
+        base_args, dataset_name,
+        T=T, n_init=n_init, n_pop=n_pop,
+        k=k, f=f, p_c=p_c,
+        results_dir=results_dir,
+    )
+
+    print("\n========== BO-DE Complete ==========", flush=True)
+    print(f"Best Val MAE: {best_mae:.4f}", flush=True)
+    print("Best Config:", best_config, flush=True)
+    print("Best Checkpoint:", best_model_path, flush=True)
+    print("Results saved to:", out_path, flush=True)
+    print("Excel saved to:", out_path.replace('.json', '.xlsx'), flush=True)
+
+    return results_log
 
 
 # ---------------------------------------------------------------------------
@@ -339,23 +393,15 @@ def main():
 
     args = parser.parse_args()
 
-    print("Model:", args.model, flush=True)
-    print("Dataset:", args.dataset, flush=True)
-    print(f"BO-DE: T={args.T}, n_init={args.n_init}, n_pop={args.n_pop}, "
-          f"k={args.k}, f={args.f}, p_c={args.p_c}", flush=True)
-
-    best_config, best_mae, results_log, out_path = bo_de(
-        args, args.dataset,
+    run_bode(
+        model_name=args.model,
+        dataset_name=args.dataset,
         T=args.T, n_init=args.n_init, n_pop=args.n_pop,
         k=args.k, f=args.f, p_c=args.p_c,
+        window=args.window, horizon=args.horizon,
+        max_epochs=args.epochs, base_root=args.base_root,
         results_dir=args.results_dir,
     )
-
-    print("\n========== BO-DE Complete ==========", flush=True)
-    print(f"Best Val MAE: {best_mae:.4f}", flush=True)
-    print("Best Config:", best_config, flush=True)
-    print("Results saved to:", out_path, flush=True)
-    print("Excel saved to:", out_path.replace('.json', '.xlsx'), flush=True)
 
 
 if __name__ == "__main__":
