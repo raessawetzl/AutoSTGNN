@@ -34,6 +34,7 @@ def run_random_search(
     horizon=12,
     base_root='./data',
     results_dir='./search_results',
+    resume_from=None
 ):
     os.makedirs(results_dir, exist_ok=True)
 
@@ -43,9 +44,20 @@ def run_random_search(
         configs = [configs]
 
     results_log = []
+    start_trial = 0
+
+    if resume_from and os.path.exists(resume_from):
+        with open(resume_from, 'r') as f:
+            results_log = json.load(f)
+        start_trial = len(results_log)
+        print(f"Resuming from trial {start_trial} (found {len(results_log)} completed trials)")
+
     search_start = time.time()
 
     for i, config in enumerate(configs):
+        if i < start_trial:
+            continue
+
         config_dict = {k: to_native(v) for k, v in dict(config).items()}
         lr = config_dict.pop('lr')
         batch_size = config_dict.pop('batch_size')
@@ -69,20 +81,19 @@ def run_random_search(
                 model_kwargs=model_kwargs,
             )
 
-            test_mae = test_results[0].get('test_mae', None)
-            mae_15 = test_results[0].get('test_mae_at_15', None)
-            mae_30 = test_results[0].get('test_mae_at_30', None)
-            mae_60 = test_results[0].get('test_mae_at_60', None)
+
+            test_results_dict = test_results[0]
+            test_metrics = {
+                k: v for k, v in test_results_dict.items() if k.startswith('test_')
+            }
 
             trial_record = {
                 'trial': i,
                 'lr': lr,
                 'batch_size': batch_size,
                 'model_kwargs': model_kwargs,
-                'test_mae': test_mae,
-                'mae_at_15': mae_15,
-                'mae_at_30': mae_30,
-                'mae_at_60': mae_60,
+                'best_model_path': best_model_path,
+                **test_metrics,
             }
 
         except Exception as e:
@@ -103,7 +114,7 @@ def run_random_search(
 
         timestamp = datetime.now().strftime('%Y%m%d')
         out_path = os.path.join(
-            results_dir, f"{model_name}_{dataset_name}_{timestamp}.json"
+            results_dir, f"{model_name}_{dataset_name}_RS_{timestamp}.json"
         )
         with open(out_path, 'w') as f:
             json.dump(to_native(results_log), f, indent=2)
@@ -122,4 +133,3 @@ def run_random_search(
         print("\nNo trials completed successfully.")
 
     return results_log
-

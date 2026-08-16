@@ -19,6 +19,7 @@ from search_space import get_search_space
 from trainer import train
 from utils import results_to_excel
 
+_rng = np.random.default_rng()
 
 def to_native(value):
     if isinstance(value, dict):
@@ -97,7 +98,7 @@ def config_to_vector(config, bounds):
 
 
 def sample_random_vector(bounds):
-    return np.random.uniform(0.0, 1.0, len(bounds))
+    return _rng.random.uniform(0.0, 1.0, len(bounds))
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +197,46 @@ def train_one_run(base_args, config, dataset_name):
 
 
 # ---------------------------------------------------------------------------
+# Shared trial-recording helper — used by both bo_de() and bo_de_resume()
+# so the record/save logic exists in exactly one place.
+# ---------------------------------------------------------------------------
+def record_trial(results_log, out_path, search_start, phase, iteration,
+                  config, objective, metrics, trial_start):
+    """Append a random_search-style record, persist JSON + Excel, return the record."""
+    cfg = dict(config)
+    lr = cfg.pop('lr')
+    batch_size = cfg.pop('batch_size')
+    trial_end = time.time()
+
+    record = {
+        'trial': len(results_log),
+        'phase': phase,
+        'iteration': iteration,
+        'lr': lr,
+        'batch_size': batch_size,
+        'model_kwargs': cfg,
+        'val_mae': objective if np.isfinite(objective) else None,
+        'test_mae': metrics.get('test_mae') if metrics else None,
+        'mae_at_15': metrics.get('mae_at_15') if metrics else None,
+        'mae_at_30': metrics.get('mae_at_30') if metrics else None,
+        'mae_at_60': metrics.get('mae_at_60') if metrics else None,
+        'best_model_path': metrics.get('best_model_path') if metrics else None,
+        'trial_duration_sec': trial_end - trial_start,
+        'elapsed_since_start_sec': trial_end - search_start,
+    }
+    results_log.append(record)
+
+    with open(out_path, 'w') as fp:
+        json.dump(to_native(results_log), fp, indent=2)
+    try:
+        results_to_excel(out_path)
+    except Exception as e:
+        print(f"Excel export failed: {e}", flush=True)
+
+    return record
+
+
+# ---------------------------------------------------------------------------
 # BO-DE main loop (Algorithm 2)
 # ---------------------------------------------------------------------------
 def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
@@ -217,39 +258,10 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
         results_dir, f"{base_args.model}_{dataset_name}_bode_{timestamp}.json"
     )
 
-    def record_trial(phase, iteration, config, objective, metrics, trial_start):
-        """Append a random_search-style record, then persist JSON + Excel."""
+    search_start = time.time()
+
+    def update_best(objective, config, metrics):
         nonlocal best_mae, best_config, best_model_path
-        cfg = dict(config)
-        lr = cfg.pop('lr')
-        batch_size = cfg.pop('batch_size')
-        trial_end = time.time()
-
-        record = {
-            'trial': len(results_log),
-            'phase': phase,
-            'iteration': iteration,
-            'lr': lr,
-            'batch_size': batch_size,
-            'model_kwargs': cfg,
-            'val_mae': objective if np.isfinite(objective) else None,
-            'test_mae': metrics.get('test_mae') if metrics else None,
-            'mae_at_15': metrics.get('mae_at_15') if metrics else None,
-            'mae_at_30': metrics.get('mae_at_30') if metrics else None,
-            'mae_at_60': metrics.get('mae_at_60') if metrics else None,
-            'best_model_path': metrics.get('best_model_path') if metrics else None,
-            'trial_duration_sec': trial_end - trial_start,
-            'elapsed_since_start_sec': trial_end - search_start,
-        }
-        results_log.append(record)
-
-        with open(out_path, 'w') as fp:
-            json.dump(to_native(results_log), fp, indent=2)
-        try:
-            results_to_excel(out_path)
-        except Exception as e:
-            print(f"Excel export failed: {e}", flush=True)
-
         if np.isfinite(objective) and objective < best_mae:
             best_mae = objective
             best_config = config
@@ -257,8 +269,6 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
             print(f"*** New best val_mae: {best_mae:.4f} ***", flush=True)
             if best_model_path:
                 print(f"    checkpoint: {best_model_path}", flush=True)
-
-    search_start = time.time()
 
     print(f"=== Initialising with {n_init} random observations ===", flush=True)
     for i in range(n_init):
@@ -276,7 +286,9 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
 
         X_obs.append(vec)
         y_obs.append(objective)
-        record_trial("init", None, config, objective, metrics, trial_start)
+        record_trial(results_log, out_path, search_start,
+                     "init", None, config, objective, metrics, trial_start)
+        update_best(objective, config, metrics)
         print(f"Init {i + 1} objective (val_mae): {objective:.4f}", flush=True)
 
     print(f"\n=== Starting BO-DE for {T} iterations ===", flush=True)
@@ -314,8 +326,128 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir):
 
         X_obs.append(best_vec)
         y_obs.append(objective)
-        record_trial("bode", t, config, objective, metrics, trial_start)
+        record_trial(results_log, out_path, search_start,
+                     "bode", t, config, objective, metrics, trial_start)
+        update_best(objective, config, metrics)
         print(f"Iteration {t} objective (val_mae): {objective:.4f}", flush=True)
+
+    return best_config, best_mae, best_model_path, results_log, out_path
+
+
+# ---------------------------------------------------------------------------
+# Resume a crashed/interrupted BO-DE run from its saved results JSON.
+# Reconstructs X_obs/y_obs from prior trials, then continues init + BO-DE
+# iterations from wherever the saved log left off.
+# ---------------------------------------------------------------------------
+def bo_de_resume(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir, resume_from):
+    os.makedirs(results_dir, exist_ok=True)
+
+    cs = get_search_space(base_args.model)
+    bounds = cs_to_bounds(cs)
+
+    with open(resume_from, 'r') as fp:
+        results_log = json.load(fp)
+
+    X_obs = []
+    y_obs = []
+    best_mae = float("inf")
+    best_config = None
+    best_model_path = None
+
+    completed_init = 0
+    completed_iters = 0
+
+    for r in results_log:
+        cfg = dict(r['model_kwargs'])
+        cfg['lr'] = r['lr']
+        cfg['batch_size'] = r['batch_size']
+        vec = config_to_vector(cfg, bounds)
+
+        objective = r['val_mae'] if r['val_mae'] is not None else float('inf')
+        X_obs.append(vec)
+        y_obs.append(objective)
+
+        if r['phase'] == 'init':
+            completed_init += 1
+        else:
+            completed_iters += 1
+
+        if objective < best_mae:
+            best_mae = objective
+            best_config = cfg
+            best_model_path = r.get('best_model_path')
+
+    print(f"Resumed: {completed_init} init trials, {completed_iters} BO-DE iterations already done", flush=True)
+    print(f"Best so far: val_mae={best_mae:.4f}", flush=True)
+
+    out_path = resume_from
+    search_start = time.time()
+
+    def update_best(objective, config, metrics):
+        nonlocal best_mae, best_config, best_model_path
+        if np.isfinite(objective) and objective < best_mae:
+            best_mae = objective
+            best_config = config
+            best_model_path = metrics.get('best_model_path') if metrics else None
+            print(f"*** New best val_mae: {best_mae:.4f} ***", flush=True)
+
+    remaining_init = n_init - completed_init
+    for i in range(remaining_init):
+        vec = sample_random_vector(bounds)
+        config = vector_to_config(vec, bounds)
+        print(f"\n--- Init {completed_init + i + 1}/{n_init} ---", flush=True)
+        print("Config:", config, flush=True)
+
+        trial_start = time.time()
+        try:
+            objective, metrics = train_one_run(base_args, config, dataset_name)
+        except Exception as e:
+            print(f"Init failed: {e}", flush=True)
+            objective, metrics = float("inf"), None
+
+        X_obs.append(vec)
+        y_obs.append(objective)
+        record_trial(results_log, out_path, search_start,
+                     "init", None, config, objective, metrics, trial_start)
+        update_best(objective, config, metrics)
+
+    remaining_iters = T - completed_iters
+    print(f"\n=== Continuing BO-DE for {remaining_iters} more iterations ===", flush=True)
+    gp = GaussianProcessRegressor(
+        kernel=ConstantKernel(1.0) * RBF(length_scale=1.0),
+        n_restarts_optimizer=5,
+        normalize_y=True,
+    )
+
+    for t in range(completed_iters + 1, T + 1):
+        print(f"\n--- BO-DE Iteration {t}/{T} ---", flush=True)
+
+        X_arr = np.array(X_obs)
+        y_arr = np.array(y_obs)
+        y_arr_fit = np.where(
+            np.isinf(y_arr),
+            np.nanmax(y_arr[~np.isinf(y_arr)]) * 2 if np.any(~np.isinf(y_arr)) else 1e6,
+            y_arr
+        )
+        gp.fit(X_arr, y_arr_fit)
+        y_best = float(np.min(y_arr_fit))
+
+        best_vec = de_maximise_ei(gp, y_best, bounds, n_pop=n_pop, k=k, f=f, p_c=p_c)
+        config = vector_to_config(best_vec, bounds)
+        print("Next config (from DE):", config, flush=True)
+
+        trial_start = time.time()
+        try:
+            objective, metrics = train_one_run(base_args, config, dataset_name)
+        except Exception as e:
+            print(f"Iteration {t} failed: {e}", flush=True)
+            objective, metrics = float("inf"), None
+
+        X_obs.append(best_vec)
+        y_obs.append(objective)
+        record_trial(results_log, out_path, search_start,
+                     "bode", t, config, objective, metrics, trial_start)
+        update_best(objective, config, metrics)
 
     return best_config, best_mae, best_model_path, results_log, out_path
 

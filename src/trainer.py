@@ -5,7 +5,7 @@ import torch
 import pytorch_lightning as pl
 from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel, AGCRNModel
 from tsl.engines import Predictor
-from tsl.metrics.torch import MaskedMAE, MaskedMAPE
+from tsl.metrics.torch import MaskedMAE, MaskedMAPE, MaskedMSE
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataloader import get_dataloaders
@@ -83,7 +83,7 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
 
     if model_name == 'graphwavenet' and kwargs.get('learned_adjacency', True):
         kwargs['n_nodes'] = n_nodes
-        
+
     if model_name == 'agcrn':
         kwargs['n_nodes'] = n_nodes
 
@@ -95,6 +95,31 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
     )
 
     return model, kwargs
+
+class MaskedRMSE(MaskedMSE):
+    def compute(self):
+        return torch.sqrt(super().compute())
+
+
+def build_metrics():
+    HORIZON_POINTS = {
+        '15': 2,
+        '30': 5,
+        '60': 11,
+    }
+
+    metrics = {
+        'mae': MaskedMAE(),
+        'mape': MaskedMAPE(),
+        'rmse': MaskedRMSE(),
+    }
+
+    for label, step in HORIZON_POINTS.items():
+        metrics[f'mae_at_{label}'] = MaskedMAE(at=step)
+        metrics[f'mape_at_{label}'] = MaskedMAPE(at=step)
+        metrics[f'rmse_at_{label}'] = MaskedRMSE(at=step)
+
+    return metrics
 
 
 def train(
@@ -138,13 +163,7 @@ def train(
     print(f"Training {model_name} with: {used_kwargs}")
 
     loss_fn = MaskedMAE()
-    metrics = {
-        'mae': MaskedMAE(),
-        'mape': MaskedMAPE(),
-        'mae_at_15': MaskedMAE(at=2),
-        'mae_at_30': MaskedMAE(at=5),
-        'mae_at_60': MaskedMAE(at=11),
-    }
+    metrics = build_metrics()
 
     predictor = Predictor(
         model=model,
