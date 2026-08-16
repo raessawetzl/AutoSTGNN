@@ -23,11 +23,11 @@ from tsl.metrics.torch import MaskedMAE, MaskedMAPE
 # ---------------------------------------------------------------
 # settings
 # ---------------------------------------------------------------
-MODEL_NAME   = "stgcn"          # must match a key in trainer.MODEL_MAP
-DATASET_NAME = "metrla"         # must match a key in dataloader.DATASET_MAP
+MODEL_NAME   = "stgcn"        
+DATASET_NAME = "metrla"         
 N_TRIALS     = 50
-MIN_BUDGET   = 5                # epochs
-MAX_BUDGET   = 50               # epochs
+MIN_BUDGET   = 3                # epochs
+MAX_BUDGET   = 20               # epochs
 SEED         = 42
 OUTPUT_DIR   = Path(__file__).resolve().parent / "bohb_results"
 
@@ -38,16 +38,21 @@ print(f"Using device: {DEVICE}")
 _train_loader = None
 _val_loader = None
 _test_loader = None
+_current_batch_size = None
 
 
 def _ensure_data_loaded(batch_size: int):
-    """(Re)loads dataloaders if batch_size changes between trials."""
-    global _train_loader, _val_loader, _test_loader
+    """(Re)loads dataloaders only if batch_size changed since the last trial."""
+    global _train_loader, _val_loader, _test_loader, _current_batch_size
+
+    if _current_batch_size == batch_size and _train_loader is not None:
+        return  # already loaded with this batch size, skip reloading
+
     _train_loader, _val_loader, _test_loader = get_dataloaders(
         dataset_name=DATASET_NAME,
         batch_size=batch_size,
     )
-
+    _current_batch_size = batch_size
 
 def config_to_kwargs(config: dict) -> dict:
     """Splits a sampled config into (lr, batch_size, model_kwargs) — same
@@ -178,9 +183,9 @@ def run_bohb():
     lr, batch_size, model_kwargs = config_to_kwargs(dict(incumbent))
 
     print(f"\nRetraining best config for {MAX_BUDGET} epochs (full budget)...")
-    predictor, lightning_trainer, test_results = train(
+    predictor, lightning_trainer, test_results, best_model_path = train(
         dataset_name=DATASET_NAME,
-        model_name=MODEL_NAME,
+        model_name="stgcn",
         window=12,
         horizon=12,
         batch_size=batch_size,
