@@ -69,7 +69,7 @@ def run_random_search(
         trial_start = time.time()
 
         try:
-            predictor, trainer, test_results, best_model_path = train(
+            predictor, trainer, test_results, best_model_path, best_val_mae = train(
                 dataset_name=dataset_name,
                 model_name=model_name,
                 window=window,
@@ -80,7 +80,6 @@ def run_random_search(
                 base_root=base_root,
                 model_kwargs=model_kwargs,
             )
-
 
             test_results_dict = test_results[0]
             test_metrics = {
@@ -93,6 +92,7 @@ def run_random_search(
                 'batch_size': batch_size,
                 'model_kwargs': model_kwargs,
                 'best_model_path': best_model_path,
+                'best_val_mae': best_val_mae,
                 **test_metrics,
             }
 

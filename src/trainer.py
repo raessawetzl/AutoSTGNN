@@ -201,7 +201,12 @@ def train(
     test_results = trainer.test(predictor, dataloaders=test_loader)
 
     best_model_path = checkpoint_callback.best_model_path if checkpoint_callback else None
+    best_val_mae = (
+        float(checkpoint_callback.best_model_score)
+        if checkpoint_callback and checkpoint_callback.best_model_score is not None
+        else None
+    )
     if best_model_path:
         print(f"Best model saved to: {best_model_path}")
 
-    return predictor, trainer, test_results, best_model_path
+    return predictor, trainer, test_results, best_model_path, best_val_mae
