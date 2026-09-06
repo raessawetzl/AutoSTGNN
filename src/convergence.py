@@ -104,6 +104,12 @@ def train_one_config(
     input_size = sample_batch.input.x.shape[-1]
     output_size = sample_batch.target.y.shape[-1]
 
+    # Auto-detect exogenous size from the batch (e.g. mask_as_exog on AQI)
+    # instead of hardcoding it, so this works whether or not 'u' is present.
+    exog_size = sample_batch.input.u.shape[-1] if 'u' in sample_batch.input else 0
+    model_kwargs = dict(model_kwargs) if model_kwargs else {}
+    model_kwargs.setdefault('exog_size', exog_size)
+
     model, used_kwargs = get_model(
         model_name=model_name,
         n_nodes=n_nodes,
@@ -125,7 +131,7 @@ def train_one_config(
         metrics=metrics,
     )
 
-    callbacks = [EarlyStopping(monitor='val_mae', patience=5, mode='min')]
+    callbacks = [EarlyStopping(monitor='val_mae', patience=30, mode='min')]
 
     logger = CSVLogger(save_dir=log_dir, name=run_name)
 
@@ -247,7 +253,7 @@ def main():
     parser.add_argument("--model", type=str, required=True,
                          choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])
     parser.add_argument("--dataset", type=str, default="metrla",
-                         choices=["metrla", "pemsbay", "pems04", "pems08"])
+                         choices=["metrla", "pemsbay", "pems04", "pems08", "electricity"])
     parser.add_argument("--n_configs", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--window", type=int, default=12)

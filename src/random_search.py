@@ -34,7 +34,8 @@ def run_random_search(
     horizon=12,
     base_root='./data',
     results_dir='./search_results',
-    resume_from=None
+    resume_from=None,
+    patience = 30
 ):
     os.makedirs(results_dir, exist_ok=True)
 
@@ -79,6 +80,7 @@ def run_random_search(
                 max_epochs=max_epochs,
                 base_root=base_root,
                 model_kwargs=model_kwargs,
+                patience= patience
             )
 
             test_results_dict = test_results[0]

@@ -1,10 +1,13 @@
 from random_search import run_random_search
+from bo_de import run_bode
+
+def bo_de():
+      run_bode(
+        dataset_name= 'pemsbay',
+        model_name='graphwavenet'
+      )
+
 def main():
-    run_random_search(
-        model_name='dcrnn',
-        dataset_name='pemsbay',
-        n_trials=10,
-        max_epochs=10,
-    )
+    bo_de()
 if __name__ == "__main__":
         main()

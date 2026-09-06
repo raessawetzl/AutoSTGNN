@@ -342,7 +342,7 @@ def load_state(resume_from, bounds):
 # ---------------------------------------------------------------------------
 # Objective
 # ---------------------------------------------------------------------------
-def train_one_run(base_args, config, dataset_name, seed=None):
+def train_one_run(base_args, config, dataset_name, seed=None, patience = 5):
     config = dict(config)
     lr = float(config.pop('lr'))
     batch_size = int(config.pop('batch_size'))
@@ -374,6 +374,7 @@ def train_one_run(base_args, config, dataset_name, seed=None):
         max_epochs=base_args.epochs,
         base_root=base_args.base_root,
         model_kwargs=model_kwargs,
+        patience = patience
     )
 
     test_results_dict = test_results[0]
@@ -442,7 +443,7 @@ def record_trial(results_log, out_path, search_start, phase, iteration,
 # BO-DE
 # ---------------------------------------------------------------------------
 def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
-          seed=42, xi=0.0, train_seed=0, resume_from=None):
+          seed=42, xi=0.0, train_seed=0, resume_from=None, patience = 5):
     os.makedirs(results_dir, exist_ok=True)
 
     cs = get_search_space(base_args.model)
@@ -502,7 +503,7 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
             trial_start, error = time.time(), None
             try:
                 objective, metrics = train_one_run(
-                    base_args, config, dataset_name, seed=train_seed)
+                    base_args, config, dataset_name, seed=train_seed, patience=patience)
             except Exception as e:
                 print(f"Init {i + 1} failed: {e}", flush=True)
                 objective, metrics, error = float('inf'), None, str(e)
@@ -569,7 +570,7 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
         trial_start, error = time.time(), None
         try:
             objective, metrics = train_one_run(
-                base_args, config, dataset_name, seed=train_seed)
+                base_args, config, dataset_name, seed=train_seed, patience = patience)
         except Exception as e:
             print(f"Iteration {t} failed: {e}", flush=True)
             objective, metrics, error = float('inf'), None, str(e)
@@ -589,7 +590,7 @@ def run_bode(model_name='graphwavenet', dataset_name='metrla',
              T=20, n_init=5, n_pop=10, k=20, f=0.8, p_c=0.9,
              window=12, horizon=12, max_epochs=10, base_root='./data',
              results_dir='./search_results', seed=42, xi=0.0, train_seed=0,
-             resume_from=None):
+             resume_from=None, patience = 5):
     base_args = argparse.Namespace(
         model=model_name, window=window, horizon=horizon,
         epochs=max_epochs, base_root=base_root,
@@ -603,7 +604,7 @@ def run_bode(model_name='graphwavenet', dataset_name='metrla',
     best_config, best_mae, best_model_path, results_log, out_path = bo_de(
         base_args, dataset_name, T=T, n_init=n_init, n_pop=n_pop, k=k,
         f=f, p_c=p_c, results_dir=results_dir, seed=seed, xi=xi,
-        train_seed=train_seed, resume_from=resume_from,
+        train_seed=train_seed, resume_from=resume_from, patience=patience
     )
 
     print("\n========== BO-DE Complete ==========", flush=True)
@@ -655,7 +656,7 @@ def main():
         seed=args.seed, train_seed=args.train_seed,
         resume_from=args.resume_from,
         window=args.window, horizon=args.horizon, max_epochs=args.epochs,
-        base_root=args.base_root, results_dir=args.results_dir,
+        base_root=args.base_root, results_dir=args.results_dir, patience=5
     )
 
 
