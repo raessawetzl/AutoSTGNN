@@ -1,0 +1,37 @@
+[
+  {
+    "batch_size": 64,
+    "emb_size": 12,
+    "hidden_size": 64,
+    "lr": 0.0004649617447,
+    "n_layers": 2
+  },
+  {
+    "batch_size": 128,
+    "emb_size": 17,
+    "hidden_size": 64,
+    "lr": 0.0001930783754,
+    "n_layers": 2
+  },
+  {
+    "batch_size": 16,
+    "emb_size": 9,
+    "hidden_size": 64,
+    "lr": 0.0020034427928,
+    "n_layers": 2
+  },
+  {
+    "batch_size": 64,
+    "emb_size": 11,
+    "hidden_size": 64,
+    "lr": 0.0001296651175,
+    "n_layers": 1
+  },
+  {
+    "batch_size": 64,
+    "emb_size": 14,
+    "hidden_size": 128,
+    "lr": 0.0027796975515,
+    "n_layers": 1
+  }
+]

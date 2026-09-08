@@ -5,10 +5,21 @@ import torch
 import pytorch_lightning as pl
 from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel, AGCRNModel
 from tsl.engines import Predictor
-from tsl.metrics.torch import MaskedMAE, MaskedMAPE
+from tsl.metrics.torch import MaskedMAE, MaskedMAPE, MaskedMSE
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataloader import get_dataloaders
+
+
+_torch_load = torch.load
+
+
+def _trusted_torch_load(*args, **kwargs):
+    kwargs['weights_only'] = False
+    return _torch_load(*args, **kwargs)
+
+
+torch.load = _trusted_torch_load
 
 
 MODEL_MAP = {
@@ -84,6 +95,9 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
     if model_name == 'graphwavenet' and kwargs.get('learned_adjacency', True):
         kwargs['n_nodes'] = n_nodes
 
+    if model_name == 'agcrn':
+        kwargs['n_nodes'] = n_nodes
+
     model = model_cls(
         input_size=input_size,
         output_size=output_size,
@@ -94,10 +108,38 @@ def get_model(model_name, n_nodes, input_size, output_size, horizon, model_kwarg
     return model, kwargs
 
 
+class MaskedRMSE(MaskedMSE):
+    def compute(self):
+        return torch.sqrt(super().compute())
+
+
+def build_metrics(horizon_steps=(3, 6, 12)):
+    """
+    horizon_steps: the forecast steps (1-indexed) to report metrics at,
+    e.g. (3, 6, 12) hours for hourly-sampled AQI, or (3, 6, 12) representing
+    15/30/60 min for 5-min-sampled traffic data. `at` uses 0-indexing,
+    so step N corresponds to at=N-1.
+    """
+    metrics = {
+        'mae': MaskedMAE(),
+        'mape': MaskedMAPE(),
+        'rmse': MaskedRMSE(),
+    }
+
+    for step in horizon_steps:
+        label = str(step)
+        at = step - 1
+        metrics[f'mae_at_{label}'] = MaskedMAE(at=at)
+        metrics[f'mape_at_{label}'] = MaskedMAPE(at=at)
+        metrics[f'rmse_at_{label}'] = MaskedRMSE(at=at)
+
+    return metrics
+
+
 def train(
     dataset_name='metrla',
     model_name='dcrnn',
-    window=12,
+    window=None,
     horizon=12,
     batch_size=64,
     lr=1e-3,
@@ -107,8 +149,11 @@ def train(
     checkpoint_dir='./checkpoints',
     save_best=True,
     seed=42,
+    horizon_steps=(3, 6, 12),
+    patience = 5
 ):
     set_seed(seed)
+    torch.set_float32_matmul_precision('medium')
 
     train_loader, val_loader, test_loader = get_dataloaders(
         dataset_name=dataset_name,
@@ -123,6 +168,12 @@ def train(
     input_size = sample_batch.input.x.shape[-1]
     output_size = sample_batch.target.y.shape[-1]
 
+    # Auto-detect exogenous size from the batch (e.g. mask_as_exog on AQI)
+    # instead of hardcoding it, so this works whether or not 'u' is present.
+    exog_size = sample_batch.input.u.shape[-1] if 'u' in sample_batch.input else 0
+    model_kwargs = dict(model_kwargs) if model_kwargs else {}
+    model_kwargs.setdefault('exog_size', exog_size)
+
     model, used_kwargs = get_model(
         model_name=model_name,
         n_nodes=n_nodes,
@@ -131,16 +182,10 @@ def train(
         horizon=horizon,
         model_kwargs=model_kwargs
     )
-    print(f"Training {model_name} with: {used_kwargs}")
+    print(f"Training {model_name} on {dataset_name} with: {used_kwargs}")
 
     loss_fn = MaskedMAE()
-    metrics = {
-        'mae': MaskedMAE(),
-        'mape': MaskedMAPE(),
-        'mae_at_15': MaskedMAE(at=2),
-        'mae_at_30': MaskedMAE(at=5),
-        'mae_at_60': MaskedMAE(at=11),
-    }
+    metrics = build_metrics(horizon_steps=horizon_steps)
 
     predictor = Predictor(
         model=model,
@@ -150,7 +195,7 @@ def train(
         metrics=metrics
     )
 
-    callbacks = [EarlyStopping(monitor='val_mae', patience=5, mode='min')]
+    callbacks = [EarlyStopping(monitor='val_mae', patience=patience, mode='min')]
 
     checkpoint_callback = None
     if save_best:
@@ -175,10 +220,16 @@ def train(
     )
 
     trainer.fit(predictor, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    test_results = trainer.test(predictor, dataloaders=test_loader)
-
     best_model_path = checkpoint_callback.best_model_path if checkpoint_callback else None
+    test_results = trainer.test(predictor, dataloaders=test_loader,ckpt_path=best_model_path)
+
+    
+    best_val_mae = (
+        float(checkpoint_callback.best_model_score)
+        if checkpoint_callback and checkpoint_callback.best_model_score is not None
+        else None
+    )
     if best_model_path:
         print(f"Best model saved to: {best_model_path}")
 
-    return predictor, trainer, test_results, best_model_path
+    return predictor, trainer, test_results, best_model_path, best_val_mae

@@ -1,0 +1,82 @@
+[
+  {
+    "lr": 0.0002310201888,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.3898455001364,
+      "ff_size": 128,
+      "hidden_size": 128,
+      "n_layers": 1,
+      "spatial_kernel_size": 3,
+      "temporal_kernel_size": 4
+    },
+    "test_mae": 3.7042925357818604,
+    "metrics_csv": "/content/drive/MyDrive/AutoSTGNN/convergence_plots/stgcn/logs/config0/version_0/metrics.csv",
+    "config_id": 0,
+    "run_name": "config0"
+  },
+  {
+    "lr": 0.0002327067708,
+    "batch_size": 128,
+    "model_kwargs": {
+      "dropout": 0.2984250789732,
+      "ff_size": 512,
+      "hidden_size": 128,
+      "n_layers": 3,
+      "spatial_kernel_size": 2,
+      "temporal_kernel_size": 5
+    },
+    "test_mae": 3.514892339706421,
+    "metrics_csv": "/content/drive/MyDrive/AutoSTGNN/convergence_plots/stgcn/logs/config1/version_0/metrics.csv",
+    "config_id": 1,
+    "run_name": "config1"
+  },
+  {
+    "lr": 0.000405961161,
+    "batch_size": 16,
+    "model_kwargs": {
+      "dropout": 0.2229163764268,
+      "ff_size": 256,
+      "hidden_size": 32,
+      "n_layers": 3,
+      "spatial_kernel_size": 2,
+      "temporal_kernel_size": 4
+    },
+    "test_mae": 3.5123987197875977,
+    "metrics_csv": "/content/drive/MyDrive/AutoSTGNN/convergence_plots/stgcn/logs/config2/version_0/metrics.csv",
+    "config_id": 2,
+    "run_name": "config2"
+  },
+  {
+    "lr": 0.0011207606212,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.049987457909,
+      "ff_size": 128,
+      "hidden_size": 32,
+      "n_layers": 3,
+      "spatial_kernel_size": 3,
+      "temporal_kernel_size": 5
+    },
+    "test_mae": 3.387934684753418,
+    "metrics_csv": "/content/drive/MyDrive/AutoSTGNN/convergence_plots/stgcn/logs/config3/version_0/metrics.csv",
+    "config_id": 3,
+    "run_name": "config3"
+  },
+  {
+    "lr": 0.0007309539836,
+    "batch_size": 64,
+    "model_kwargs": {
+      "dropout": 0.2296244459829,
+      "ff_size": 256,
+      "hidden_size": 32,
+      "n_layers": 2,
+      "spatial_kernel_size": 2,
+      "temporal_kernel_size": 5
+    },
+    "test_mae": 3.5684399604797363,
+    "metrics_csv": "/content/drive/MyDrive/AutoSTGNN/convergence_plots/stgcn/logs/config4/version_0/metrics.csv",
+    "config_id": 4,
+    "run_name": "config4"
+  }
+]
