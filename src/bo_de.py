@@ -1,34 +1,3 @@
-"""
-BO-DE: Bayesian optimization with Differential Evolution for acquisition maximization.
-
-Implements Algorithm 2 of Vincent & Jidesh (2023), Sci Rep 13:4737.
-
-Departures from the published pseudo-code, all of which should be declared in
-any write-up:
-
-  1. Initial design is deterministic random draws in [0,1]^D via a seeded
-     Generator, rather than the paper's unspecified initial-observation method.
-  2. Failed trials are excluded from the GP fit rather than imputed.
-
-The kernel (isotropic RBF, Eq. 3, effectively noiseless with sklearn's default
-alpha=1e-10) and the acquisition function (raw Expected Improvement, Eqs. 5-6,
-xi=0) match the paper exactly - no alternate kernel or acquisition option is
-provided. The DE mutation / binomial crossover / greedy selection structure and
-the outer BO loop follow Algorithm 2 as published.
-
-Resuming
---------
-Pass resume_from=<path to the run's JSON> (or --resume_from on the CLI) to
-continue a crashed run. Completed trials are reloaded into the GP, the run
-continues from where it stopped, and results are appended to the same file.
-
-Randomness is derived per-iteration from (seed, phase, index) rather than from
-a single running Generator, so a resumed run produces exactly the same
-proposals as an uninterrupted one would have. A crash part-way through a trial
-loses only that trial: the JSON is written after each completed trial, and
-atomically, so it is never left truncated.
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,27 +21,18 @@ from utils import results_to_excel, to_native
 
 
 def iter_rng(seed, phase, idx):
-    """Deterministic per-iteration Generator.
 
-    Threading one Generator through the whole search would make its state
-    depend on how many DE calls had happened, so a resumed run would diverge
-    from an uninterrupted one at every subsequent iteration. Deriving from
-    (seed, phase, idx) instead makes iteration t reproducible in isolation.
-    """
     return np.random.default_rng([int(seed), int(phase), int(idx)])
 
 
-# ---------------------------------------------------------------------------
-# Config <-> vector conversion
-#
-# All hyperparameters map into [0, 1]^D. Integers and categoricals use
-# equal-width bins so that decode(encode(x)) == x exactly, and so a uniform
-# draw in [0,1] gives a uniform draw over the levels. The previous
-# round(lo + v*(hi-lo)) decoding gave the two endpoints half the probability
-# mass of interior values - for kernel_size in [1,3] that meant 25/50/25
-# instead of 33/33/33, a different sampling distribution to the one ConfigSpace
-# gives random search.
-# ---------------------------------------------------------------------------
+'''
+All hyperparams map to [0,1]^D (D is dimensions) so its compactible with DE. GP is also fit with these vectors.
+
+config_to_vector encodes, vector_to_config decodes. 
+
+quantize prevents GP from seeing 2 different configs as same
+
+'''
 def cs_to_bounds(cs):
     bounds = []
     for hp in list(cs.values()):
@@ -147,32 +107,17 @@ def config_to_vector(config, bounds):
 
 
 def quantize(vector, bounds):
-    """Snap a vector to the point actually evaluated after discretization.
-
-    The GP must be told about q(x), not x. Storing the raw pre-quantization
-    vector means feeding the surrogate near-identical inputs with genuinely
-    different targets, which is a fast route to a collapsed lengthscale.
-    """
     return config_to_vector(vector_to_config(vector, bounds), bounds)
 
 
 def initial_design(n_init, bounds, seed):
-    """Random draws in [0,1]^D via a seeded Generator.
-
-    Deterministic in (n_init, seed) and indexed by position, so a resumed run
-    continues the same design rather than drawing fresh points.
-    """
     D = len(bounds)
     rng = np.random.default_rng(seed)
     return rng.random((n_init, D))
 
 
-# ---------------------------------------------------------------------------
-# Acquisition: Expected Improvement (Eqs. 5-6), xi=0 as in the paper
-# ---------------------------------------------------------------------------
-def acquisition(X_new, gp, y_best, xi=0.0):
-    """Expected Improvement for minimization. Batched - pass the whole DE
-    population at once. Matches Eqs. 5-6 exactly."""
+
+def acquisition(X_new, gp, y_best, xi=0.0): # EI function
     X_new = np.atleast_2d(X_new)
     mu, sigma = gp.predict(X_new, return_std=True)
     sigma = np.maximum(sigma, 1e-12)
@@ -180,12 +125,7 @@ def acquisition(X_new, gp, y_best, xi=0.0):
     return (y_best - mu - xi) * norm.cdf(z) + sigma * norm.pdf(z)
 
 
-def ei_terms(x, gp, y_best, xi=0.0):
-    """Split EI into exploitation and exploration components (diagnostic).
-
-    If explore/exploit is consistently >> 1, the search is uncertainty-driven
-    and will not converge on a minimum. That is the signature to look for.
-    """
+def ei_terms(x, gp, y_best, xi=0.0): # Save EI terms for diagnositic
     mu, sigma = gp.predict(np.atleast_2d(x), return_std=True)
     mu, sigma = float(mu[0]), max(float(sigma[0]), 1e-12)
     z = (y_best - mu - xi) / sigma
@@ -278,20 +218,14 @@ def fit_gp(gp, X_obs, y_obs):
 # ---------------------------------------------------------------------------
 # Resume
 # ---------------------------------------------------------------------------
-def record_to_config(record):
-    """Rebuild the full hyperparameter dict from a saved trial record."""
+def record_to_config(record): # Rebuilt huperparam dict from saved trials
     cfg = dict(record.get('model_kwargs', {}))
     cfg['lr'] = record['lr']
     cfg['batch_size'] = record['batch_size']
     return cfg
 
 
-def load_state(resume_from, bounds):
-    """Reload completed trials from a run's JSON.
-
-    Returns (X_obs, y_obs, results_log, n_init_done, n_iters_done,
-             best_mae, best_config, best_model_path).
-    """
+def load_state(resume_from, bounds): # Reload completed trials from json
     with open(resume_from, 'r') as fp:
         results_log = json.load(fp)
 
@@ -301,8 +235,6 @@ def load_state(resume_from, bounds):
 
     for rec in results_log:
         cfg = record_to_config(rec)
-        # config_to_vector output is already quantized, matching what a fresh
-        # run stores
         X_obs.append(config_to_vector(cfg, bounds))
 
         objective = rec.get('val_mae')
@@ -323,20 +255,13 @@ def load_state(resume_from, bounds):
             best_mae, best_config, best_model_path)
 
 
-# ---------------------------------------------------------------------------
-# Objective
-# ---------------------------------------------------------------------------
-def train_one_run(base_args, config, dataset_name, seed=None, patience = 5):
+
+def train_one_run(base_args, config, dataset_name, seed=None, patience = 30):
     config = dict(config)
     lr = float(config.pop('lr'))
     batch_size = int(config.pop('batch_size'))
     model_kwargs = config
 
-    # Common random numbers: fixing the training seed identically across every
-    # trial makes this closer to a paired comparison, so config differences are
-    # not swamped by init/shuffle noise. Re-evaluate the final incumbent across
-    # several seeds before reporting, since this biases toward configs that
-    # happen to suit this one.
     if seed is not None:
         try:
             import pytorch_lightning as pl
@@ -408,8 +333,6 @@ def record_trial(results_log, out_path, search_start, phase, iteration,
 
     results_log.append(record)
 
-    # atomic write: a crash part-way through json.dump would otherwise leave a
-    # truncated file and lose the whole run
     tmp_path = out_path + '.tmp'
     with open(tmp_path, 'w') as fp:
         json.dump(to_native(results_log), fp, indent=2)
@@ -423,9 +346,7 @@ def record_trial(results_log, out_path, search_start, phase, iteration,
     return record
 
 
-# ---------------------------------------------------------------------------
-# BO-DE
-# ---------------------------------------------------------------------------
+
 def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
           seed=42, xi=0.0, train_seed=0, resume_from=None, patience = 5):
     os.makedirs(results_dir, exist_ok=True)
@@ -473,7 +394,6 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
             if best_model_path:
                 print(f"    checkpoint: {best_model_path}", flush=True)
 
-    # ---- initial design -------------------------------------------------
     if n_init_done < n_init:
         design = initial_design(n_init, bounds, seed)
         print(f"=== Initialising: {n_init - n_init_done} random observations "
@@ -502,7 +422,6 @@ def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
         print(f"=== Initial design already complete "
               f"({n_init_done}/{n_init}) ===", flush=True)
 
-    # ---- BO loop --------------------------------------------------------
     remaining = T - n_iters_done
     if remaining <= 0:
         print(f"\n=== BO-DE already complete ({n_iters_done}/{T}) ===", flush=True)
@@ -574,7 +493,7 @@ def run_bode(model_name='graphwavenet', dataset_name='metrla',
              T=20, n_init=5, n_pop=10, k=20, f=0.8, p_c=0.9,
              window=12, horizon=12, max_epochs=10, base_root='./data',
              results_dir='./search_results', seed=42, xi=0.0, train_seed=0,
-             resume_from=None, patience = 5):
+             resume_from=None, patience = 30):
     base_args = argparse.Namespace(
         model=model_name, window=window, horizon=horizon,
         epochs=max_epochs, base_root=base_root,
@@ -603,9 +522,9 @@ def run_bode(model_name='graphwavenet', dataset_name='metrla',
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, required=True,
-                        choices=["metrla", "pemsbay", "pems04", "pems08", "electricity"])
+                        choices=["metrla", "pemsbay", "electricity"])
     parser.add_argument("--model", type=str, required=True,
-                        choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])
+                        choices=["graphwavenet", "stgcn", "agcrn"])
 
     parser.add_argument("--T", type=int, default=20)
     parser.add_argument("--n_init", type=int, default=5)

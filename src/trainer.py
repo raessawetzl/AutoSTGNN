@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 import pytorch_lightning as pl
-from tsl.nn.models import GraphWaveNetModel, DCRNNModel, STCNModel, AGCRNModel
+from tsl.nn.models import GraphWaveNetModel, STCNModel, AGCRNModel
 from tsl.engines import Predictor
 from tsl.metrics.torch import MaskedMAE, MaskedMAPE, MaskedMSE
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
@@ -24,7 +24,6 @@ torch.load = _trusted_torch_load
 
 MODEL_MAP = {
     'graphwavenet': GraphWaveNetModel,
-    'dcrnn': DCRNNModel,
     'stgcn': STCNModel,
     'agcrn': AGCRNModel
 }
@@ -43,15 +42,6 @@ DEFAULT_MODEL_KWARGS = {
         'dilation_mod': 2,
         'norm': 'batch',
         'dropout': 0.3,
-    },
-    'dcrnn': {
-        'exog_size': 0,
-        'hidden_size': 32,
-        'kernel_size': 2,
-        'ff_size': 256,
-        'n_layers': 1,
-        'dropout': 0,
-        'activation': 'relu',
     },
     'stgcn': {
         'exog_size': 0,
@@ -114,12 +104,7 @@ class MaskedRMSE(MaskedMSE):
 
 
 def build_metrics(horizon_steps=(3, 6, 12)):
-    """
-    horizon_steps: the forecast steps (1-indexed) to report metrics at,
-    e.g. (3, 6, 12) hours for hourly-sampled AQI, or (3, 6, 12) representing
-    15/30/60 min for 5-min-sampled traffic data. `at` uses 0-indexing,
-    so step N corresponds to at=N-1.
-    """
+
     metrics = {
         'mae': MaskedMAE(),
         'mape': MaskedMAPE(),
@@ -138,7 +123,7 @@ def build_metrics(horizon_steps=(3, 6, 12)):
 
 def train(
     dataset_name='metrla',
-    model_name='dcrnn',
+    model_name='stcn',
     window=None,
     horizon=12,
     batch_size=64,
@@ -150,7 +135,7 @@ def train(
     save_best=True,
     seed=42,
     horizon_steps=(3, 6, 12),
-    patience = 5
+    patience = 30
 ):
     set_seed(seed)
     torch.set_float32_matmul_precision('medium')
@@ -168,8 +153,7 @@ def train(
     input_size = sample_batch.input.x.shape[-1]
     output_size = sample_batch.target.y.shape[-1]
 
-    # Auto-detect exogenous size from the batch (e.g. mask_as_exog on AQI)
-    # instead of hardcoding it, so this works whether or not 'u' is present.
+
     exog_size = sample_batch.input.u.shape[-1] if 'u' in sample_batch.input else 0
     model_kwargs = dict(model_kwargs) if model_kwargs else {}
     model_kwargs.setdefault('exog_size', exog_size)

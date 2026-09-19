@@ -1,22 +1,8 @@
-"""
-compare_search_methods.py
-
-Builds a summary table comparing Random Search vs BO-DE per (model, dataset):
-val_mae variance, best value, trials-to-best, and per-trial timing.
-
-Usage:
-    python compare_search_methods.py /path/to/search_results_dir [--out summary.csv]
-
-Expects filenames like:
-    <model>_<dataset>_<METHOD>_<date>.xlsx
-    e.g. stgcn_pemsbay_BODE__20260827.xlsx, agcrn_pemsbay_RS_20260820.xlsx
-An optional leading numeric prefix (e.g. "1787875127136_") is stripped automatically.
-"""
-
 import argparse
 import re
 import sys
 from pathlib import Path
+import os
 
 import pandas as pd
 
@@ -35,7 +21,6 @@ def parse_filename(path: Path):
 
 
 def value_column(df: pd.DataFrame) -> str:
-    """RS files only log best_val_mae; BODE files log both. Prefer val_mae when present."""
     if "val_mae" in df.columns:
         return "val_mae"
     if "best_val_mae" in df.columns:
@@ -77,13 +62,15 @@ def summarize_run(path: Path) -> dict:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--search_dir", type=Path, default=Path("search_results/") ,help="Directory containing the .xlsx result files")
-    ap.add_argument("--out", type=Path, default=Path(f"plots/search_comparison_summary.csv"))
+    ap.add_argument("--resdir", type=Path, default=Path("search_results/") ,help="Directory containing the .xlsx result files")
+    ap.add_argument("--outpath", type=Path, default=Path("plots/"),
+                    help="Directory to save search_comparison_summary.csv to.")
     args = ap.parse_args()
-
+    os.makedirs(args.outpath, exist_ok=True)
+    csv_path = args.outpath / "search_comparison_summary.csv"
     rows = []
     skipped = []
-    for path in sorted(args.search_dir.glob("*.xlsx")):
+    for path in sorted(args.resdir.glob("*.xlsx")):
         parsed = parse_filename(path)
         if parsed is None:
             skipped.append(path.name)
@@ -117,10 +104,9 @@ def main():
     ]
     summary = summary[col_order].sort_values(["model", "dataset", "method"]).reset_index(drop=True)
 
-    summary.to_csv(args.out, index=False)
-    print(f"Wrote {args.out}\n")
+    summary.to_csv(csv_path, index=False)
+    print(f"Wrote {csv_path}\n")
 
-    # Plain-text preview grouped by model/dataset, RS and BODE side by side
     display_cols = [
         "method", "n_trials", "mean_val_mae", "std_val_mae", "median_val_mae",
         "iqr_val_mae", "best_val_mae", "trial_at_best",

@@ -1,39 +1,3 @@
-"""
-train_best_config.py
-
-Given a single search-results .xlsx (from random_search.py or BODE.py), extracts
-the model/dataset combo and the best-scoring hyperparameter config, retrains that
-config for a fixed number of epochs, and writes a one-row summary to
-<results_dir>/<model>_<dataset>_<method>_final.xlsx -- same results_dir used by
-run_random_search()/run_bode(), and the same base_root for input data.
-
-Matches the real trainer.py interface as used in random_search.py:
-
-    predictor, trainer, test_results, best_model_path, best_val_mae = train(
-        dataset_name=dataset_name,
-        model_name=model_name,
-        window=window,
-        horizon=horizon,
-        batch_size=batch_size,
-        lr=lr,
-        max_epochs=max_epochs,
-        base_root=base_root,
-        model_kwargs=model_kwargs,
-        patience=max_epochs,
-    )
-
-Usage:
-    from train_best_config import run_final
-
-    run_final(
-        "agcrn_pemsbay_BODE__20260827.xlsx",
-        src_dir="/content/drive/MyDrive/AutoSTGNN/src",
-        max_epochs=30,
-        base_root="/content/drive/MyDrive/AutoSTGNN/data",
-        results_dir="/content/drive/MyDrive/AutoSTGNN/search_results",
-    )
-"""
-
 import re
 import sys
 import time
@@ -47,11 +11,6 @@ FNAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Mirrors search_space.py's get_search_space(): which hyperparams are
-# integer/categorical-integer vs boolean vs float, per model. Needed because
-# pd.read_excel() returns numpy floats for everything, and things like
-# DataLoader(batch_size=...) reject numpy types / floats where a plain Python
-# int or bool is required.
 INT_PARAMS_COMMON = {"batch_size", "hidden_size"}
 BOOL_PARAMS = {"learned_adjacency"}
 
@@ -65,7 +24,6 @@ INT_PARAMS_BY_MODEL = {
 
 def coerce_value(model_name, key, value):
     if key in BOOL_PARAMS:
-        # Excel may round-trip True/False as 1.0/0.0 or as strings.
         if isinstance(value, str):
             return value.strip().lower() in ("true", "1")
         return bool(round(float(value)))
@@ -118,11 +76,7 @@ def extract_best_config(df: pd.DataFrame, model_name: str) -> dict:
 
 
 def call_train(model_name, dataset_name, lr, batch_size, model_kwargs, max_epochs, window, horizon, base_root):
-    """
-    Thin wrapper around src/trainer.py's train(). Adjust here if the real
-    signature changes -- everything else in this script is agnostic to it.
-    """
-    from trainer import train  # imported here so src_dir can be put on sys.path first
+    from trainer import train  
 
     return train(
         dataset_name=dataset_name,
@@ -150,15 +104,6 @@ def run_final(
     results_dir="./search_results",
     src_dir=".",
 ):
-    """
-    Extract the best config from xlsx_path, retrain it for max_epochs, and write
-    <results_dir>/<model>_<dataset>_<method>_final.xlsx.
-
-    base_root and results_dir mirror run_random_search()'s params exactly --
-    same input data root, same output directory as the search results live in.
-
-    Returns the output row as a dict.
-    """
     xlsx_path = Path(xlsx_path)
     results_dir = Path(results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -210,9 +155,7 @@ def run_final(
         "trial_duration_sec": duration_sec,
     }
 
-    # Prefer the project's own JSON->xlsx flattener for consistent kw_* columns,
-    # matching the format of the RS/BODE result files. Falls back to a direct
-    # pandas write if utils.results_to_excel isn't importable/available.
+
     out_path = results_dir / f"{model}_{dataset}_{method}_final.xlsx"
     try:
         import json

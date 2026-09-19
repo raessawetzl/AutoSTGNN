@@ -1,3 +1,4 @@
+import argparse
 import glob
 import os
 import re
@@ -5,10 +6,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 MODELS = ["stgcn", "graphwavenet", "agcrn"]
-METHODS = ["rs", "bode", "bohb", "dehb"]
+METHODS = ["rs", "bode"]
 
 MODEL_LABELS = {
-    "dcrnn": "DCRNN",
     "stgcn": "STGCN",
     "graphwavenet": "Graph WaveNet",
     "agcrn": "AGCRN",
@@ -16,21 +16,15 @@ MODEL_LABELS = {
 METHOD_LABELS = {
     "rs": "Random Search",
     "bode": "BO-DE",
-    "bohb": "BOHB",
-    "dehb": "DEHB",
 }
 
 METHOD_COLORS = {
     "rs": "#7F7F7F",
     "bode": "#D62728",
-    "bohb": "#1F77B4",
-    "dehb": "#2CA02C",
 }
 METHOD_MARKERS = {
     "rs": "o",
     "bode": "s",
-    "bohb": "^",
-    "dehb": "D",
 }
 
 
@@ -62,9 +56,6 @@ def load_all(input_dir):
 
 
 def plot_dataset(dataset, entries, output_dir, mark_bode_start=True):
-    """One subplot per model, sharing a y-axis. All lines solid; method is
-    distinguished by color and marker shape. Each line's global minimum is
-    marked with a larger, outlined star."""
     models_present = sorted({model for model, _, _ in entries})
     n = len(models_present)
 
@@ -124,17 +115,29 @@ def plot_dataset(dataset, entries, output_dir, mark_bode_start=True):
     plt.close(fig)
     print(f"Saved: {out_path} ({len(entries)} lines across {n} panels)")
 
-
-def main():
-    os.makedirs("plots/", exist_ok=True)
-    records = load_all("search_results/")
+def plotting(res_dir="search_results/", out_dir="plots/"):
+    os.makedirs(out_dir, exist_ok=True)
+    records = load_all(res_dir)
 
     if not records:
         print("No matching result files found.")
         return
 
     for dataset, entries in records.items():
-        plot_dataset(dataset, entries, "plots/")
+        plot_dataset(dataset, entries, out_dir)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Plot trial vs. validation MAE from search-result xlsx files."
+    )
+    parser.add_argument("--resdir", type=str, default="search_results/",
+                        help="Directory containing the search-result .xlsx files.")
+    parser.add_argument("--outpath", type=str, default="plots/",
+                        help="Directory to save the generated plots to.")
+    args = parser.parse_args()
+
+    plotting(res_dir=args.resdir, out_dir=args.outpath)
 
 
 if __name__ == "__main__":

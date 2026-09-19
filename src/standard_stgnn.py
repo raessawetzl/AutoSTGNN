@@ -11,7 +11,7 @@ from trainer import train
 from utils import results_to_excel
 
 MODEL_NAME  = "graphwavenet"
-DATASETS    = ["metrla", "pemsbay"]
+DATASETS    = ["metrla", "pemsbay", "electricity"]
 EPOCHS      = 30
 SEED        = 42
 LR          = 1e-3

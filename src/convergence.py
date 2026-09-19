@@ -1,19 +1,3 @@
-"""
-Run like such in colab cell
-
-from convergence import run_convergence_analysis
-
-run_convergence_analysis(
-    model_name='graphwavenet', ## Use agcrn stgcn here
-    dataset_name='metrla',
-    n_configs=5,
-    max_epochs=15,
-    base_root='/content/drive/MyDrive/AutoSTGNN/data',
-    output_root='/content/drive/MyDrive/AutoSTGNN/convergence_plots',
-)
-
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -88,8 +72,7 @@ def train_one_config(
     input_size = sample_batch.input.x.shape[-1]
     output_size = sample_batch.target.y.shape[-1]
 
-    # Auto-detect exogenous size from the batch (e.g. mask_as_exog on AQI)
-    # instead of hardcoding it, so this works whether or not 'u' is present.
+
     exog_size = sample_batch.input.u.shape[-1] if 'u' in sample_batch.input else 0
     model_kwargs = dict(model_kwargs) if model_kwargs else {}
     model_kwargs.setdefault('exog_size', exog_size)
@@ -235,9 +218,9 @@ def plot_convergence(model_name, results, output_dir, metric='val_mae'):
 def main():
     parser = argparse.ArgumentParser(description="Convergence analysis across N sampled configs")
     parser.add_argument("--model", type=str, required=True,
-                         choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])
+                         choices=["graphwavenet","stgcn", "agcrn"])
     parser.add_argument("--dataset", type=str, default="metrla",
-                         choices=["metrla", "pemsbay", "pems04", "pems08", "electricity"])
+                         choices=["metrla", "pemsbay", "electricity"])
     parser.add_argument("--n_configs", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--window", type=int, default=12)

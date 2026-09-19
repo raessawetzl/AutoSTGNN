@@ -9,7 +9,7 @@ from trainer import train
 
 
 def run_random_search(
-    model_name='dcrnn',
+    model_name='stcn',
     dataset_name='metrla',
     n_trials=20,
     max_epochs=20,
