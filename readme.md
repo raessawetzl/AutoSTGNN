@@ -3,6 +3,7 @@
 This code is for benchmarking BO-DE against a Random Search baseline.
 
 Models: Graph Wavenet, STCN, AGCRN
+
 Datasets: Metr-LA, PEMS-BAY, ElectricityBenchmark
 
 Models and datasets are sourced from [tsl (Torch Spatiotemporal)](https://torch-spatiotemporal.readthedocs.io/en/latest/)
@@ -13,10 +14,12 @@ Quick start and usage instructions shown in [AutoSTGNN_example.ipynb](AutoSTGNN_
 
 ## Results
 
-[Training results](search_results)
-[Plots](plots)
+- [Training results](search_results)
+- [Plots](plots)
 
 ## File description
+
+All source code is stored in [src](src)
 
 ### Setup
 - **dataloader.py** - Builds train/val/test dataloaders per dataset (MetrLA, PemsBay, Electricity). Uses tsl's built-in sensor-similarity graph for MetrLA/PemsBay, and a correlation-based k-NN graph for Electricity (which has no built-in connectivity).
