@@ -2,7 +2,19 @@
 
 This code is for benchmarking BO-DE against a Random Search baseline.
 
-All code is designed to run on Google Colab with running instructions shown in 'AutoSTGNN_example.ipynb'
+Models: Graph Wavenet, STCN, AGCRN
+Datasets: Metr-LA, PEMS-BAY, ElectricityBenchmark
+
+Models and datasets are sourced from [tsl (Torch Spatiotemporal)](https://torch-spatiotemporal.readthedocs.io/en/latest/)
+
+All code is designed to run on a Google Colab notebook. 
+Quick start and usage instructions shown in [AutoSTGNN_example.ipynb](AutoSTGNN_example.ipynb)
+
+
+## Results
+
+[Training results](search_results)
+[Plots](plots)
 
 ## File description
 
@@ -22,7 +34,7 @@ All code is designed to run on Google Colab with running instructions shown in '
 
 - **random_search.py** - Baseline hyperparameter search: samples configs uniformly at random from `search_space.py` and trains each one, logging results to JSON/Excel. Supports resuming of crashed runs.
 
-- **bo_de.py** - The BO-DE solver: Bayesian Optimization with a Gaussian Process surrogate and Expected Improvement acquisition, maximized via Differential Evolution (Algorithm 2 of the reference paper). Supports resuming of crashed runs. 
+- **bo_de.py** - The BO-DE solver: Bayesian Optimization with a Gaussian Process surrogate and Expected Improvement acquisition, maximized via Differential Evolution ([Algorithm 2](https://www.nature.com/articles/s41598-023-32027-3) of the reference paper). Supports resuming of crashed runs. 
 
 - **train_final.py** - Takes a completed search's results `.xlsx`, extracts the best-found config, and retrains it for a longer, fixed number of epochs to produce a final reportable result.
 
