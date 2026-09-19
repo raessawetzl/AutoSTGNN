@@ -21,7 +21,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import json
 import argparse
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -37,6 +36,7 @@ from trainer import (
     build_metrics,
 )
 from dataloader import get_dataloaders
+from utils import to_native
 from tsl.engines import Predictor
 from tsl.metrics.torch import MaskedMAE
 
@@ -44,22 +44,6 @@ SEED = 42
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_OUTPUT_ROOT = os.path.join(PROJECT_ROOT, 'convergence_plots')
-
-
-def to_native(value):
-    if isinstance(value, dict):
-        return {k: to_native(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [to_native(v) for v in value]
-    if isinstance(value, np.integer):
-        return int(value)
-    if isinstance(value, np.floating):
-        return float(value)
-    if isinstance(value, np.bool_):
-        return bool(value)
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    return value
 
 
 def sample_n_configs(model_name, n=5, seed=SEED):

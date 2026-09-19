@@ -48,23 +48,7 @@ import ConfigSpace.hyperparameters as CSH
 
 from search_space import get_search_space
 from trainer import train
-from utils import results_to_excel
-
-
-def to_native(value):
-    if isinstance(value, dict):
-        return {k: to_native(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [to_native(v) for v in value]
-    if isinstance(value, np.integer):
-        return int(value)
-    if isinstance(value, np.floating):
-        return float(value)
-    if isinstance(value, np.bool_):
-        return bool(value)
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    return value
+from utils import results_to_excel, to_native
 
 
 def iter_rng(seed, phase, idx):

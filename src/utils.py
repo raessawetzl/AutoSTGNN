@@ -1,5 +1,22 @@
 import json
+import numpy as np
 import pandas as pd
+
+
+def to_native(value):
+    if isinstance(value, dict):
+        return {k: to_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [to_native(v) for v in value]
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
 
 
 def results_to_excel(json_path, excel_path=None):
