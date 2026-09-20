@@ -134,16 +134,9 @@ def ei_terms(x, gp, y_best, xi=0.0): # Save EI terms for diagnositic
     return exploit, explore, mu, sigma
 
 
-# ---------------------------------------------------------------------------
-# Differential Evolution over the acquisition surface (Algorithm 2, lines 4-10)
-# ---------------------------------------------------------------------------
-def de_maximise_ei(gp, y_best, bounds, rng, n_pop=10, k=20, f=0.8, p_c=0.9,
-                   xi=0.0, tol=1e-6, patience=20, verbose=True):
-    """Maximize EI with DE/rand/1/bin.
 
-    Early stopping after `patience` generations without improvement returns the
-    same argmax as running the full k, it just stops burning GP predicts.
-    """
+def de_maximise_ei(gp, y_best, bounds, rng, n_pop=10, k=20, f=0.8, p_c=0.9,
+                   xi=0.0, tol=1e-6, patience=20, verbose=True): # Differential Evolution loop
     D = len(bounds)
     pop = rng.random((n_pop, D))
     ei = acquisition(pop, gp, y_best, xi=xi)
@@ -157,9 +150,6 @@ def de_maximise_ei(gp, y_best, bounds, rng, n_pop=10, k=20, f=0.8, p_c=0.9,
 
         donors = pop[idx[:, 0]] + f * (pop[idx[:, 1]] - pop[idx[:, 2]])
 
-        # random repair, not clipping: clipping deposits every out-of-range
-        # component exactly on the boundary, and with n_pop*k mutations per
-        # iteration that piles the population into the corners
         oob = (donors < 0.0) | (donors > 1.0)
         if oob.any():
             donors[oob] = rng.random((n_pop, D))[oob]
@@ -189,10 +179,7 @@ def de_maximise_ei(gp, y_best, bounds, rng, n_pop=10, k=20, f=0.8, p_c=0.9,
     return pop[best_idx], float(ei[best_idx]), converged_at
 
 
-# ---------------------------------------------------------------------------
-# Surrogate: isotropic RBF (Eq. 3), effectively noiseless (sklearn default
-# alpha=1e-10), exactly as specified in the paper.
-# ---------------------------------------------------------------------------
+# Gaussian process as defined in the paper
 def build_gp(seed):
     k = ConstantKernel(1.0) * RBF(length_scale=1.0)
     return GaussianProcessRegressor(
@@ -200,12 +187,7 @@ def build_gp(seed):
 
 
 def fit_gp(gp, X_obs, y_obs):
-    """Fit on finite observations only.
 
-    Failed trials are dropped rather than imputed at 2x the worst value: with
-    normalize_y that outlier inflates the target scale and squashes the real
-    variation among good configs into a narrow band, flattening EI.
-    """
     X = np.asarray(X_obs)
     y = np.asarray(y_obs, dtype=float)
     ok = np.isfinite(y)
@@ -215,9 +197,7 @@ def fit_gp(gp, X_obs, y_obs):
     return True, float(y[ok].min())
 
 
-# ---------------------------------------------------------------------------
-# Resume
-# ---------------------------------------------------------------------------
+# For resuming
 def record_to_config(record): # Rebuilt huperparam dict from saved trials
     cfg = dict(record.get('model_kwargs', {}))
     cfg['lr'] = record['lr']
@@ -255,7 +235,7 @@ def load_state(resume_from, bounds): # Reload completed trials from json
             best_mae, best_config, best_model_path)
 
 
-
+# Objective function
 def train_one_run(base_args, config, dataset_name, seed=None, patience = 30):
     config = dict(config)
     lr = float(config.pop('lr'))
@@ -346,7 +326,7 @@ def record_trial(results_log, out_path, search_start, phase, iteration,
     return record
 
 
-
+# Main BODE loop
 def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
           seed=42, xi=0.0, train_seed=0, resume_from=None, patience = 5):
     os.makedirs(results_dir, exist_ok=True)
