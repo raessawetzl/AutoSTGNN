@@ -326,7 +326,7 @@ def record_trial(results_log, out_path, search_start, phase, iteration,
     return record
 
 
-# Main BODE loop
+# Main BODE 
 def bo_de(base_args, dataset_name, T, n_init, n_pop, k, f, p_c, results_dir,
           seed=42, xi=0.0, train_seed=0, resume_from=None, patience = 5):
     os.makedirs(results_dir, exist_ok=True)

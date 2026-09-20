@@ -49,8 +49,7 @@ def load_and_process(filepath, time_col="trial_duration_sec",
     if value_col not in df.columns:
         raise ValueError(f"'{value_col}' column not found in {filepath}")
 
-    # keep only rows where trial is numeric (covers stray summary/incumbent
-    # rows some loggers append, e.g. a 'FINAL' row)
+
     trial_numeric = pd.to_numeric(df[order_col], errors="coerce")
     n_dropped = trial_numeric.isna().sum()
     if n_dropped > 0:

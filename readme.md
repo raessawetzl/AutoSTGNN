@@ -14,7 +14,9 @@ Quick start and usage instructions shown in [AutoSTGNN_example.ipynb](AutoSTGNN_
 
 ## Results
 
-- [Training results](search_results)
+- [Training results for BO-DE vs RS](search_results)
+- [All solver comparison](search_results/crosssolver/)
+- [Final training results](search_results/final_runs/)
 - [Plots](plots)
 
 ## File description
