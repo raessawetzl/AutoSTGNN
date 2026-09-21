@@ -1,0 +1,9 @@
+numpy
+pandas
+matplotlib
+openpyxl
+torch
+pytorch-lightning
+torch-spatiotemporal
+ConfigSpace
+smac
