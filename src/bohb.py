@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 
-import hashlib #checkpoint resumption
+import hashlib # used to create id per config, for checkpoint resumption
 
 from smac import MultiFidelityFacade, Scenario
 from smac.intensifier.hyperband import Hyperband
@@ -29,16 +29,16 @@ from tsl.metrics.torch import MaskedMAE, MaskedMAPE
 
 from smac.callback import Callback
 
-# settings ---------------------------------------------------------------
-MODEL_NAME   = "graphwavenet"
-DATASET_NAME = "metrla"
+# ------------------------- settings -------------------------
+MODEL_NAME   = "stgcn"          # or graphwavenet, agcrn
+DATASET_NAME = "electricity"    # or metrla, pemsbay
 
-ETA          = 3
-MIN_BUDGET   = 4        
-MAX_BUDGET   = 12
+ETA          = 3 # successive halving ratio             
+MIN_BUDGET   = 4                # change based on convergence plots
+MAX_BUDGET   = 12               # change based on convergence plots
 N_TRIALS       = 10000  
-MAX_TOTAL_EPOCHS = 240   
-FINAL_EPOCHS = 30     
+MAX_TOTAL_EPOCHS = 240          # change based on convergence plots
+FINAL_EPOCHS = 30           
 CRASH_COST   = 100.0
 SEED         = 42
 
@@ -46,11 +46,12 @@ BASE_DIR     = Path('/content/drive/MyDrive/AutoSTGNN')
 OUTPUT_DIR   = BASE_DIR / 'bohb_results'
 DATA_ROOT    = str(BASE_DIR / 'data')
 
-# ------------------------------------------------------------------------
+# ---------------------------------------------------------------
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
 
+# cache dataloaders per batch size and reuse across rungs instead of rebuilding on every call.
 _loader_cache = {}      # batch_size -> (train, val, test)
 _shapes = {}            # batch_size -> (n_nodes, input_size, output_size)
 _train_loader = None
@@ -60,15 +61,20 @@ _test_loader = None
 _results_log = []
 _trial_counter = 0
 _search_start_time = None
-_time_offset = 0.0
+_time_offset = 0.0      # elapsed time carried over from a previous (resumed) run
 
 LOG_PATH = OUTPUT_DIR / f"bohb_{MODEL_NAME}_{DATASET_NAME}_seed{SEED}.json"
 
-#checkpoint resumption
-CKPT_DIR = Path("/content/rung_ckpts")   # local disk, NOT Drive — see note
+# checkpoint resumption across BOHB rungs saved to local disk not drive because its rewritten constantly 
+CKPT_DIR = Path("/content/rung_ckpts")   
 _rung_state = {}                          # config_key -> {"epochs", "best", "snapshot"}
 
 def _config_key(config) -> str:
+    """Hash a config's sorted key/value pairs into a short stable id.
+
+    Used to recognize when the same hyperparameter config reappears at a higher budget rung, 
+    so training can resume from its checkpoint instead of starting over.
+    """
     blob = json.dumps({k: v for k, v in sorted(dict(config).items())},
                       sort_keys=True, default=str)
     return hashlib.md5(blob.encode()).hexdigest()[:16]
@@ -91,7 +97,6 @@ class BestScore(pl.Callback):
                 if k.startswith("val_")
             }
 
-
 def _ensure_data_loaded(batch_size: int):
     """Builds dataloaders once per batch size and reuses them thereafter."""
     global _train_loader, _val_loader, _test_loader
@@ -102,6 +107,7 @@ def _ensure_data_loaded(batch_size: int):
             batch_size=batch_size,
             base_root=DATA_ROOT,
         )
+        # infer model dims from one batch instead of hardcoding them
         sample_batch = next(iter(_loader_cache[batch_size][0]))
         _shapes[batch_size] = (
             sample_batch.input.x.shape[2],
@@ -110,7 +116,6 @@ def _ensure_data_loaded(batch_size: int):
         )
 
     _train_loader, _val_loader, _test_loader = _loader_cache[batch_size]
-
 
 def config_to_kwargs(config: dict) -> dict:
     """Splits a sampled config into (lr, batch_size, model_kwargs)."""
@@ -125,7 +130,13 @@ def config_to_kwargs(config: dict) -> dict:
 
 
 def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = None) -> float:
-    """Trains one config for `budget` epochs and returns its best validation MAE."""
+    """Trains one config for `budget` epochs and returns its best validation MAE.
+
+    Called repeatedly by SMAC/Hyperband, once per (config, budget) pair. If this
+    config was already trained to at least `budget` epochs in an earlier rung,
+    training is skipped and the cached result is reused; otherwise it resumes
+    from that config's saved checkpoint and trains up to the new budget.
+    """
     global _trial_counter
     _trial_counter += 1
     trial_num = _trial_counter
@@ -164,7 +175,7 @@ def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = 
         prev = _rung_state.get(key, {"epochs": 0, "best": float("inf"), "snapshot": {}})
 
         if prev["epochs"] >= epochs:
-            # already trained at least this far — reuse, spend zero epochs
+            # this config already reached this budget in an earlier rung — reuse the result
             new_epochs = 0
             val_mae = prev["best"]
             best_cb = BestScore(prev["best"], prev["snapshot"])
@@ -173,7 +184,7 @@ def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = 
             best_cb = BestScore(prev["best"], prev["snapshot"])
 
             lightning_trainer = pl.Trainer(
-                max_epochs=epochs,          # absolute target; Lightning restores the counter
+                max_epochs=epochs, # absolute target; Lightning restores the counter
                 accelerator="auto",
                 devices=1,
                 num_sanity_val_steps=0,
@@ -188,7 +199,7 @@ def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = 
                 predictor,
                 train_dataloaders=_train_loader,
                 val_dataloaders=_val_loader,
-                ckpt_path=resume_path,      # None on the first rung
+                ckpt_path=resume_path, # None on the first rung for this config   
             )
 
             CKPT_DIR.mkdir(parents=True, exist_ok=True)
@@ -207,7 +218,7 @@ def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = 
             "trial": trial_num,
             "algorithm": "bohb",
             "budget_epochs": epochs,
-            "epochs_run": new_epochs,              # was lightning_trainer.current_epoch
+            "epochs_run": new_epochs,          
             "epochs_cumulative_for_config": epochs,
             "status": "ok",
             "seed": SEED,
@@ -221,6 +232,8 @@ def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = 
         return val_mae
 
     except Exception as e:
+        # SMAC needs the exception re-raised, but we log the failure first
+        # so it still shows up in the results file/Excel export.
         duration = time.time() - trial_start
         print(f"  Trial {trial_num} failed: {e} — recording as crashed")
         _log_trial({
@@ -241,6 +254,8 @@ def bohb_objective(config: Configuration, seed: int = 0, budget: float | None = 
 
 
 def _load_existing_log():
+    """Loads a previous run's log if present, so trial numbering and
+    elapsed-time tracking continue correctly after a resume."""
     global _results_log, _trial_counter, _time_offset
 
     if LOG_PATH.exists():
@@ -288,10 +303,12 @@ class EpochBudgetStopper(Callback):
         total = sum(r.get("epochs_run") or 0 for r in _results_log)
         if total >= self.max_total_epochs:
             print(f"\nReached epoch budget: {total}/{self.max_total_epochs} epochs. Stopping BOHB.")
-            return False   # returning False halts smac.optimize()
+            return False  
         return True
 
 def run_bohb():
+    """Runs the full BOHB hyperparameter search, then retrains and tests
+    the best found config for FINAL_EPOCHS."""
     global _search_start_time
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     _load_existing_log()
@@ -325,7 +342,7 @@ def run_bohb():
         random_design=ProbabilityRandomDesign(probability=1/3, seed=SEED),
         initial_design=RandomInitialDesign(scenario, n_configs=n_hps + 2, seed=SEED),
         config_selector=ConfigSelector(scenario, retrain_after=1),
-        overwrite=False,     # resumes from OUTPUT_DIR instead of wiping it
+        overwrite=False, # resumes from OUTPUT_DIR instead of wiping it    
         callbacks=[EpochBudgetStopper(MAX_TOTAL_EPOCHS)],
     )
 

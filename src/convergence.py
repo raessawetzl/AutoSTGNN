@@ -1,20 +1,29 @@
 """
-Run like such in colab cell
+Convergence analysis for STGNN models.
 
-import sys
-sys.path.append('/content/drive/MyDrive/AutoSTGNN/src')
+Samples N hyperparameter configurations from a model's search space, trains
+each one, and plots validation/training MAE convergence curves so configs
+can be compared side by side.
 
-from convergence import run_convergence_analysis
+Run from a Colab cell:
 
-run_convergence_analysis(
-    model_name='stgcn', ## Use agcrn stgcn here
-    dataset_name='electricity',
-    n_configs=5,
-    max_epochs=15,
-    base_root='/content/drive/MyDrive/AutoSTGNN/data',
-    output_root='/content/drive/MyDrive/AutoSTGNN/convergence_plots',
-)
+    import sys
+    sys.path.append('/content/drive/MyDrive/AutoSTGNN/src')
 
+    from convergence import run_convergence_analysis
+
+    run_convergence_analysis(
+        model_name='stgcn',  # options: agcrn, stgcn, graphwavenet, dcrnn
+        dataset_name='electricity', # options: metrla, pemsbay, pems04, pems08, electricity
+        n_configs=5,
+        max_epochs=15,
+        base_root='/content/drive/MyDrive/AutoSTGNN/data',
+        output_root='/content/drive/MyDrive/AutoSTGNN/convergence_plots',
+    )
+
+Or from the command line:
+
+    python convergence.py --model stgcn --dataset electricity --n_configs 5
 """
 
 import sys
@@ -50,6 +59,7 @@ DEFAULT_OUTPUT_ROOT = os.path.join(PROJECT_ROOT, 'convergence_plots')
 
 
 def to_native(value):
+    """Recursively convert numpy scalars/arrays to native Python types for JSON serialization."""
     if isinstance(value, dict):
         return {k: to_native(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -66,6 +76,7 @@ def to_native(value):
 
 
 def sample_n_configs(model_name, n=5, seed=SEED):
+    """Sample n random hyperparameter configs from a model's search space."""
     cs = get_search_space(model_name)
     cs.seed(seed)
     configs = cs.sample_configuration(n)
@@ -86,6 +97,7 @@ def train_one_config(
     run_name=None,
     seed=SEED,
 ):
+    """Train and evaluate a single hyperparameter config end-to-end, returning a result summary."""
     set_seed(seed)
     torch.set_float32_matmul_precision('medium')
 
@@ -102,13 +114,13 @@ def train_one_config(
         base_root=base_root,
     )
 
+    # Inspect one batch to infer model I/O dimensions directly from the data
     sample_batch = next(iter(train_loader))
     n_nodes = sample_batch.input.x.shape[2]
     input_size = sample_batch.input.x.shape[-1]
     output_size = sample_batch.target.y.shape[-1]
 
-    # Auto-detect exogenous size from the batch (e.g. mask_as_exog on AQI)
-    # instead of hardcoding it, so this works whether or not 'u' is present.
+    # Auto-detect exogenous size from the batch (e.g. mask_as_exog on AQI), so this works whether or not 'u' is present.
     exog_size = sample_batch.input.u.shape[-1] if 'u' in sample_batch.input else 0
     model_kwargs = dict(model_kwargs) if model_kwargs else {}
     model_kwargs.setdefault('exog_size', exog_size)
@@ -174,6 +186,25 @@ def run_convergence_analysis(
     seed=SEED,
 ):
 
+    """
+    Run a full convergence study: sample n configs, train each one, and
+    plot validation/training MAE curves across all configs for comparison.
+
+    Args:
+        model_name (str): Model architecture to analyze. Defaults to 'graphwavenet'.
+        dataset_name (str): Dataset to train on. Defaults to 'metrla'.
+        n_configs (int): Number of configurations to sample and train. Defaults to 5.
+        max_epochs (int): Maximum epochs per training run. Defaults to 15.
+        window (int): Input window length. Defaults to 12.
+        horizon (int): Forecast horizon length. Defaults to 12.
+        base_root (str): Root directory containing the dataset. Defaults to './data'.
+        output_root (str): Root directory to write configs, results, and plots to.
+        seed (int): Random seed for reproducibility. Defaults to SEED.
+
+    Returns:
+        list[dict]: Per-config result summaries, as returned by train_one_config
+            for each sampled configuration.
+    """
     model_out_dir = os.path.join(output_root, model_name)
     log_dir = os.path.join(model_out_dir, 'logs')
     os.makedirs(log_dir, exist_ok=True)
@@ -252,6 +283,7 @@ def plot_convergence(model_name, results, output_dir, metric='val_mae'):
 
 
 def main():
+    """CLI entry point: parse arguments and run the convergence analysis."""
     parser = argparse.ArgumentParser(description="Convergence analysis across N sampled configs")
     parser.add_argument("--model", type=str, required=True,
                          choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])

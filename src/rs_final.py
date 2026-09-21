@@ -21,13 +21,13 @@ from trainer import train
 
 # settings — MUST match bohb.py -------------------------------------------
 MODEL_NAME   = "stgcn"
-DATASET_NAME = "pemsbay"
+DATASET_NAME = "electricity"
 FINAL_EPOCHS = 30
 SEED         = 42
 
 BASE_DIR     = Path('/content/drive/MyDrive/AutoSTGNN')
 DATA_ROOT    = str(BASE_DIR / 'data')
-RS_DIR       = BASE_DIR / 'Shared Results' / 'Random Search' / 'stgcn' / 'pemsbay' #update 
+RS_DIR       = BASE_DIR / 'Shared Results' / 'Random Search' / 'stgcn' / 'electricity' #update 
 
 OUT_PATH     = RS_DIR / f"rs_final_{MODEL_NAME}_{DATASET_NAME}_seed{SEED}.json"
 # -------------------------------------------------------------------------

@@ -150,7 +150,7 @@ def train(
     save_best=True,
     seed=42,
     horizon_steps=(3, 6, 12),
-    patience = 5
+    patience = 30
 ):
     set_seed(seed)
     torch.set_float32_matmul_precision('medium')
