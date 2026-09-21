@@ -1,20 +1,47 @@
+"""
+random_search.py
+
+random hyperparameter search for stgnn models.
+
+samples n_trials random configs from a model's search space, trains and
+tests each one, and logs results (json + excel) after every trial so
+progress isn't lost on a crash. supports resuming a previous run.
+
+usage:
+    from random_search import run_random_search
+    run_random_search(model_name='stgcn', dataset_name='electricity', n_trials=20, max_epochs=12)
+
+config:
+    model_name    - model to search over (dcrnn, stgcn, graphwavenet, agcrn)
+    dataset_name  - dataset to train/eval on (metrla, pemsbay, pems04, pems08, electricity)
+    n_trials      - number of random configs to try
+    max_epochs    - max training epochs per trial
+    window        - input window length
+    horizon       - forecast horizon length
+    base_root     - root directory containing the dataset
+    results_dir   - directory to write per-trial results (json/excel) to
+    resume_from   - path to a previous results json to resume from
+    patience      - early-stopping patience (epochs)
+"""
+
 import json
 import os
-import numpy as np
-from datetime import datetime
+import sys
 import time
-from utils import results_to_excel
+from datetime import datetime
+from pathlib import Path
 
+import numpy as np
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils import results_to_excel
 from search_space import get_search_space
 from trainer import train
 
-# save results 
-import sys 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
-from pathlib import Path
-
 
 def to_native(value):
+    """recursively convert numpy scalars/arrays to native python types for json serialization."""
     if isinstance(value, dict):
         return {k: to_native(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -31,8 +58,8 @@ def to_native(value):
 
 
 def run_random_search(
-    model_name='dcrnn',
-    dataset_name='metrla',
+    model_name='dcrnn',       # options: dcrnn, stgcn, graphwavenet, agcrn
+    dataset_name='metrla',    # options: metrla, pemsbay, pems04, pems08, electricity
     n_trials=20,
     max_epochs=20,
     window=12,
@@ -40,8 +67,9 @@ def run_random_search(
     base_root='./data',
     results_dir=Path(__file__).resolve().parent / 'search_results',
     resume_from=None,
-    patience = 30
+    patience=30,
 ):
+    """sample and train n_trials random configs, logging results after each trial."""
     os.makedirs(results_dir, exist_ok=True)
 
     cs = get_search_space(model_name)
@@ -62,7 +90,7 @@ def run_random_search(
 
     for i, config in enumerate(configs):
         if i < start_trial:
-            continue
+            continue  # already completed in a previous (resumed) run
 
         config_dict = {k: to_native(v) for k, v in dict(config).items()}
         lr = config_dict.pop('lr')
@@ -85,7 +113,7 @@ def run_random_search(
                 max_epochs=max_epochs,
                 base_root=base_root,
                 model_kwargs=model_kwargs,
-                patience= patience
+                patience=patience,
             )
 
             test_results_dict = test_results[0]
@@ -119,6 +147,7 @@ def run_random_search(
 
         results_log.append(trial_record)
 
+        # write out after every trial so a crash doesn't lose earlier results
         timestamp = datetime.now().strftime('%Y%m%d')
         out_path = os.path.join(
             results_dir, f"{model_name}_{dataset_name}_RS_{timestamp}.json"

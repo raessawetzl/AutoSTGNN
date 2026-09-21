@@ -1,51 +1,33 @@
-#!/usr/bin/env python3
 """
 plot_search_budget.py
-=====================
 
-Two figures comparing BOHB against random search (RS) over a HPO study of
-spatio-temporal GNNs:
+two figures comparing bohb vs random search over a hpo study of
+spatio-temporal gnns: epochs_per_fidelity (trials coloured by rung) and
+anytime_performance (incumbent val mae vs cumulative epochs, with a default-
+config reference line). search phase only — final-retrain workbooks are
+excluded. workbooks are found recursively under --results-dir and classified
+by filename (bohb/rs/default), tolerant of case, spacing, and known aliases.
 
-  1. epochs_per_fidelity   - every search trial as a point, coloured by the
-                             fidelity (rung) it ran at, BOHB vs RS. Shows
-                             where the multi-fidelity schedule actually put
-                             the budget. Rungs are read per panel, never
-                             assumed constant across architecture x dataset.
-  2. anytime_performance   - incumbent validation MAE vs cumulative training
-                             epochs, one panel per architecture x dataset,
-                             with a horizontal reference line at the default
-                             ("standard"/baseline) configuration's val MAE.
-
-SEARCH ONLY. Final-retrain rows and "RS FINAL *" / "*final*" workbooks are
-excluded throughout -- the curves describe the search phase, not the
-post-search retrain.
-
-Expected inputs (found recursively under --results-dir, extension .xlsx):
-
-  BOHB     bohb_<arch>_<dataset>_seed42.xlsx
-  RS       RS <ARCH> <DATASET>.xlsx
-  default  <arch>_standard_<date>.xlsx        (one row per dataset)
-  ignored  RS FINAL <ARCH> <DATASET>.xlsx, anything else matching *final*
-
-Filename parsing is tolerant of case, spaces vs underscores, numeric upload
-prefixes, " (1)"/" (2)" copy suffixes, and the aliases GWN -> graphwavenet,
-METR-LA -> metrla, ELECTRCITY -> electricity.
-
-Usage
------
-In Google Colab, no arguments are needed - Drive is mounted automatically,
-PROJECT_ROOT below is used for input and output, and the figures are shown
-inline:
-
+usage:
+    # colab - drive mounts automatically, figures shown inline
     %run '/content/drive/MyDrive/AutoSTGNN/src/plot.py'
 
-From a shell:
-
+    # shell
     python plot_search_budget.py --results-dir ./results
     python plot_search_budget.py --results-dir ./results --outdir ./figures \
         --formats png pdf --bohb-incumbent max-fidelity
 
-Requires: pandas, numpy, matplotlib, openpyxl
+config:
+    --results-dir     root dir searched recursively for .xlsx workbooks
+    --outdir          where figures are written
+    --formats         output formats (png, pdf, svg)
+    --dpi             raster resolution
+    --rs-epochs       epochs per rs trial, if not recorded in the workbook
+    --bohb-incumbent  'all' or 'max-fidelity' (like-for-like vs rs)
+    --share-x         use one common epoch axis across all panels
+    --no-display      skip inline notebook rendering
+
+requires: pandas, numpy, matplotlib, openpyxl
 """
 
 from __future__ import annotations
@@ -66,17 +48,13 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-# --------------------------------------------------------------------------
-# Environment - Colab does the tedious parts by itself
-# --------------------------------------------------------------------------
-
 __version__ = "1.4"
 
 PROJECT_ROOT = Path("/content/drive/MyDrive/AutoSTGNN")
-DISPLAY_WIDTH_PX = 1100          # inline preview width; files stay full-res
-
+DISPLAY_WIDTH_PX = 1100  # inline preview width; files stay full-res
 
 def in_notebook() -> bool:
+    """true if running inside an ipython/jupyter kernel."""
     try:
         from IPython import get_ipython
     except ImportError:
@@ -85,11 +63,12 @@ def in_notebook() -> bool:
 
 
 def in_colab() -> bool:
+    """true if running on google colab."""
     return "google.colab" in sys.modules or Path("/content").is_dir()
 
 
 def mount_drive() -> None:
-    """Mount Google Drive if we are on Colab and it is not mounted yet."""
+    """mount google drive if on colab and not already mounted."""
     if not in_colab() or Path("/content/drive/MyDrive").is_dir():
         return
     try:
@@ -101,16 +80,16 @@ def mount_drive() -> None:
 
 
 def default_results_dir() -> Path:
-    """First plausible results folder: the project root, then the cwd."""
+    """first plausible results folder: the project root, then the cwd."""
     for candidate in (PROJECT_ROOT / "results", Path("results"),
                       Path("../results"), Path("/content/results")):
         if candidate.is_dir():
             return candidate
-    return PROJECT_ROOT / "results" 
+    return PROJECT_ROOT / "results"
 
 
 def default_outdir(results_dir: Path) -> Path:
-    """Write figures beside the results folder, so they land in Drive too."""
+    """write figures beside the results folder, so they land in drive too."""
     parent = results_dir.resolve().parent
     try:
         probe = parent / ".write_probe"
@@ -122,7 +101,7 @@ def default_outdir(results_dir: Path) -> Path:
 
 
 def show_inline(paths: list) -> None:
-    """Render the PNGs in the notebook output cell, scaled to fit."""
+    """render the pngs in the notebook output cell, scaled to fit."""
     if not in_notebook():
         return
     try:
@@ -132,11 +111,6 @@ def show_inline(paths: list) -> None:
     for path in paths:
         if path.suffix.lower() == ".png":
             display(Image(filename=str(path), width=DISPLAY_WIDTH_PX))
-
-
-# --------------------------------------------------------------------------
-# Naming
-# --------------------------------------------------------------------------
 
 ARCH_ALIASES = {
     "graphwavenet": "graphwavenet",
@@ -165,19 +139,17 @@ DATASET_LABEL = {"metrla": "METR-LA", "pemsbay": "PEMS-BAY", "electricity": "Ele
 ARCH_ORDER = ["graphwavenet", "agcrn", "stgcn"]
 DATASET_ORDER = ["metrla", "pemsbay", "electricity"]
 
-# --------------------------------------------------------------------------
-# Style
-# --------------------------------------------------------------------------
 
-C_BOHB = "#1B7F5E"      # green
-C_RS = "#C0255F"        # raspberry
+# ----------------------------style--------------------------------------
+
+C_BOHB = "#1B7F5E"
+C_RS = "#C0255F"
 C_DEFAULT = "#3F3F3F"
 METHOD_COLOR = {"bohb": C_BOHB, "rs": C_RS}
 METHOD_LABEL = {"bohb": "BOHB", "rs": "Random Search"}
 METHOD_MARKER = {"bohb": "o", "rs": "^"}
 
-# Colour encodes fidelity. Each method gets its own ramp so that the rung a
-# trial ran at is readable, and RS is never left as an uncoloured outlier.
+# each method gets its own colour ramp so the rung a trial ran at is readable
 FIDELITY_RAMP = {
     "bohb": ["#BFE6D4", "#6FC4A1", "#1B7F5E", "#0A4F37"],
     "rs": ["#F5B9CD", "#E07095", "#C0255F", "#7C1340"],
@@ -195,39 +167,35 @@ def fidelity_shades(method: str, n: int) -> list:
 
 
 def fidelity_label(method: str, fid: float) -> str:
+    """legend label for one method/fidelity combination."""
     return f"{METHOD_LABEL[method]} (budget={fid:g} epochs)"
 
 
-plt.rcParams.update(
-    {
-        "figure.dpi": 110,
-        "savefig.bbox": "tight",
-        "font.size": 10,
-        "axes.titlesize": 10.5,
-        "axes.labelsize": 10,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": True,
-        "grid.alpha": 0.25,
-        "grid.linewidth": 0.6,
-        "legend.frameon": False,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-    }
-)
+plt.rcParams.update({
+    "figure.dpi": 110,
+    "savefig.bbox": "tight",
+    "font.size": 10,
+    "axes.titlesize": 10.5,
+    "axes.labelsize": 10,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.grid": True,
+    "grid.alpha": 0.25,
+    "grid.linewidth": 0.6,
+    "legend.frameon": False,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+})
 
 
-# --------------------------------------------------------------------------
-# Filename parsing
-# --------------------------------------------------------------------------
-
+# -----------------------filename parsing--------------------------------
 
 def normalise(stem: str) -> str:
-    """Lowercase, strip copy-suffixes and upload prefixes, non-alnum -> '_'."""
+    """lowercase, strip copy-suffixes and upload prefixes, non-alnum -> '_'."""
     s = stem.lower()
-    s = re.sub(r"\s*\(\d+\)\s*$", "", s)          # trailing " (1)", " (2)"
+    s = re.sub(r"\s*\(\d+\)\s*$", "", s)
     s = re.sub(r"[^a-z0-9]+", "_", s)
-    s = re.sub(r"^_*\d{6,}_*", "_", s)            # leading upload id
+    s = re.sub(r"^_*\d{6,}_*", "_", s)
     return f"_{s.strip('_')}_"
 
 
@@ -239,7 +207,7 @@ def _match_alias(norm: str, aliases: dict[str, str]) -> str | None:
 
 
 def classify(path: Path) -> tuple[str | None, str | None, str | None]:
-    """Return (role, arch, dataset). role in {bohb, rs, default} or None."""
+    """returns (role, arch, dataset). role is one of bohb/rs/default/none."""
     norm = normalise(path.stem)
     arch = _match_alias(norm, ARCH_ALIASES)
     dataset = _match_alias(norm, DATASET_ALIASES)
@@ -247,20 +215,17 @@ def classify(path: Path) -> tuple[str | None, str | None, str | None]:
     if "_standard_" in norm or "baseline" in norm or "_default_" in norm:
         return "default", arch, dataset
     if "final" in norm:
-        return None, arch, dataset                # post-search retrain: skip
+        return None, arch, dataset  # post-search retrain: skip
     if "bohb" in norm:
         return "bohb", arch, dataset
     if norm.startswith("_rs_") or "_random" in norm or "_randomsearch_" in norm:
         return "rs", arch, dataset
     return None, arch, dataset
 
-
-# --------------------------------------------------------------------------
-# Loading
-# --------------------------------------------------------------------------
-
+# loading
 
 def first_col(df: pd.DataFrame, *names: str) -> str | None:
+    """first of `names` that exists as a column in df, else none."""
     for n in names:
         if n in df.columns:
             return n
@@ -268,7 +233,7 @@ def first_col(df: pd.DataFrame, *names: str) -> str | None:
 
 
 def drop_junk_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Drop trailing summary rows ('min test mae', blanks) and FINAL retrains."""
+    """drop trailing summary rows ('min test mae', blanks) and final retrains."""
     if "trial" not in df.columns:
         return df.dropna(how="all")
     trial = df["trial"].astype("string").str.strip().str.lower()
@@ -278,15 +243,15 @@ def drop_junk_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 @dataclass
 class Run:
-    """One search run: per-trial epochs, fidelity and validation MAE."""
+    """one search run: per-trial epochs, fidelity and validation mae."""
 
     method: str
     arch: str
     dataset: str
     source: Path
-    epochs: np.ndarray          # epochs actually trained in each trial
-    fidelity: np.ndarray        # rung / budget the trial was evaluated at
-    val_mae: np.ndarray         # may contain NaN
+    epochs: np.ndarray
+    fidelity: np.ndarray
+    val_mae: np.ndarray
     epochs_note: str = ""
 
     @property
@@ -298,7 +263,7 @@ class Run:
         return (self.arch, self.dataset)
 
     def incumbent(self, restrict_fidelity: float | None = None):
-        """Step curve of best-so-far val MAE against cumulative epochs."""
+        """step curve of best-so-far val mae against cumulative epochs."""
         cum = self.cumulative
         ok = np.isfinite(self.val_mae)
         if restrict_fidelity is not None:
@@ -309,8 +274,9 @@ class Run:
 
 
 def load_bohb(path: Path, arch: str, dataset: str) -> Run:
+    """load a bohb results workbook into a Run."""
     df = pd.read_excel(path)
-    df = drop_junk_rows(df)                       # also removes the FINAL row
+    df = drop_junk_rows(df)  # also removes the final row
 
     ep_col = first_col(df, "epochs_run", "budget_epochs")
     fid_col = first_col(df, "budget_epochs", "epochs_run")
@@ -321,10 +287,8 @@ def load_bohb(path: Path, arch: str, dataset: str) -> Run:
     epochs = pd.to_numeric(df[ep_col], errors="coerce").to_numpy(float)
     fidelity = pd.to_numeric(df[fid_col], errors="coerce").to_numpy(float)
     val = pd.to_numeric(df[val_col], errors="coerce").to_numpy(float)
-
     note = f"epochs from '{ep_col}', fidelity from '{fid_col}'"
 
-    # Sanity-check the recorded cumulative column if the file carries one.
     cum_col = first_col(df, "cumulative_epochs")
     if cum_col is not None:
         recorded = pd.to_numeric(df[cum_col], errors="coerce").to_numpy(float)
@@ -338,6 +302,7 @@ def load_bohb(path: Path, arch: str, dataset: str) -> Run:
 
 
 def load_rs(path: Path, arch: str, dataset: str, forced_epochs: float | None) -> Run:
+    """load a random-search results workbook into a Run."""
     df = pd.read_excel(path)
     df = drop_junk_rows(df)
 
@@ -355,7 +320,7 @@ def load_rs(path: Path, arch: str, dataset: str, forced_epochs: float | None) ->
         epochs = np.full(n, float(forced_epochs))
         note = f"{forced_epochs:g} epochs/trial (supplied)"
     else:
-        epochs = np.full(n, np.nan)               # resolved later from BOHB rungs
+        epochs = np.full(n, np.nan)  # resolved later from bohb rungs
         note = "epochs/trial pending"
 
     fidelity = epochs.copy()
@@ -363,7 +328,7 @@ def load_rs(path: Path, arch: str, dataset: str, forced_epochs: float | None) ->
 
 
 def infer_rs_epochs_from_paths(path: Path) -> float | None:
-    """Fallback: largest 'best-epoch=NN' in the checkpoint paths, +1."""
+    """fallback: largest 'best-epoch=nn' in the checkpoint paths, +1."""
     df = drop_junk_rows(pd.read_excel(path))
     col = first_col(df, "best_model_path", "checkpoint", "model_path")
     if col is None:
@@ -375,7 +340,7 @@ def infer_rs_epochs_from_paths(path: Path) -> float | None:
 
 
 def load_defaults(path: Path, arch_hint: str | None) -> list[tuple[str, str, float]]:
-    """Return (arch, dataset, val_mae) for each row of a *_standard_* workbook."""
+    """returns (arch, dataset, val_mae) for each row of a *_standard_* workbook."""
     df = pd.read_excel(path).dropna(how="all")
     val_col = first_col(df, "val_mae", "best_val_mae")
     if val_col is None:
@@ -394,6 +359,8 @@ def load_defaults(path: Path, arch_hint: str | None) -> list[tuple[str, str, flo
 
 @dataclass
 class Study:
+    """all loaded search runs plus per-(arch, dataset) default-config mae."""
+
     runs: list[Run] = field(default_factory=list)
     defaults: dict[tuple[str, str], float] = field(default_factory=dict)
 
@@ -411,6 +378,7 @@ class Study:
 
 
 def collect(results_dir: Path, rs_epochs: float | None) -> Study:
+    """scan results_dir recursively, classify and load every workbook into a Study."""
     files = sorted(p for p in results_dir.rglob("*.xlsx") if not p.name.startswith("~$"))
     if not files:
         sys.exit(f"No .xlsx files found under {results_dir}")
@@ -436,11 +404,9 @@ def collect(results_dir: Path, rs_epochs: float | None) -> Study:
             continue
         candidates.setdefault((role, arch, dataset), []).append(path)
 
-    # Resolve duplicate downloads: keep whichever workbook has the most trials.
+    # duplicate downloads: keep whichever workbook has the most trials
     for (role, arch, dataset), paths in sorted(candidates.items()):
         if len(paths) > 1:
-            # most trials wins; ties go to the shortest name, i.e. the
-            # original rather than a " (1)" / " (2)" duplicate download.
             paths = sorted(paths, key=lambda p: (-len(drop_junk_rows(pd.read_excel(p))),
                                                  len(p.name), p.name))
             print(f"  ! {role} {arch}/{dataset}: {len(paths)} copies, using "
@@ -449,7 +415,7 @@ def collect(results_dir: Path, rs_epochs: float | None) -> Study:
         try:
             run = (load_bohb(path, arch, dataset) if role == "bohb"
                    else load_rs(path, arch, dataset, rs_epochs))
-        except Exception as exc:                            # noqa: BLE001
+        except Exception as exc:
             print(f"  ! failed on {path.name}: {exc}", file=sys.stderr)
             continue
         study.runs.append(run)
@@ -460,12 +426,8 @@ def collect(results_dir: Path, rs_epochs: float | None) -> Study:
 
 
 def resolve_rs_epochs(study: Study) -> None:
-    """Fill in RS epochs/trial where the workbook does not record them.
-
-    Preference: the matching BOHB run's highest *search* rung (RS trains each
-    config at full fidelity, which is the same budget as BOHB's top rung),
-    else the largest 'best-epoch=NN' seen in the checkpoint filenames + 1.
-    """
+    """fill in rs epochs/trial where the workbook doesn't record them, preferring
+    the matching bohb run's top rung, else the checkpoint filenames."""
     for run in study.runs:
         if run.method != "rs" or np.isfinite(run.epochs).all():
             continue
@@ -486,27 +448,23 @@ def resolve_rs_epochs(study: Study) -> None:
         print(f"  ~ RS {run.arch}/{run.dataset}: assuming {run.epochs_note}")
 
 
-# --------------------------------------------------------------------------
-# Figure 1 - epochs per fidelity level
-# --------------------------------------------------------------------------
-
+# -----------------figure 1 - epochs per fidelity level--------------------
 
 def budget_table(study: Study) -> pd.DataFrame:
+    """per (arch, dataset, method, fidelity): trial count, epochs spent, budget share."""
     rows = []
     for run in study.runs:
         ok = np.isfinite(run.epochs) & np.isfinite(run.fidelity)
         for fid in np.unique(run.fidelity[ok]):
             sel = ok & (run.fidelity == fid)
-            rows.append(
-                {
-                    "architecture": run.arch,
-                    "dataset": run.dataset,
-                    "method": run.method,
-                    "fidelity_epochs": float(fid),
-                    "n_trials": int(sel.sum()),
-                    "epochs_spent": float(run.epochs[sel].sum()),
-                }
-            )
+            rows.append({
+                "architecture": run.arch,
+                "dataset": run.dataset,
+                "method": run.method,
+                "fidelity_epochs": float(fid),
+                "n_trials": int(sel.sum()),
+                "epochs_spent": float(run.epochs[sel].sum()),
+            })
     df = pd.DataFrame(rows)
     if df.empty:
         return df
@@ -532,13 +490,9 @@ def panel_grid(study: Study):
 
 
 def plot_fidelity_scatter(study: Study, outdir: Path, formats, dpi):
-    """Every trial as one point: colour = fidelity, marker = search method.
-
-    Rungs are *not* assumed to be the same across panels - each architecture x
-    dataset pair gets its own colour assignment (light = that pair's cheapest
-    rung, dark = its most expensive) and its own legend stating the actual
-    epoch budgets, so a pair running 5/15 is never mislabelled as 4/12.
-    """
+    """every trial as a point: colour = fidelity, marker = search method.
+    rungs aren't assumed constant across panels -- each arch x dataset pair
+    gets its own colour ramp and legend for its actual epoch budgets."""
     archs, datasets, fig, axes = panel_grid(study)
 
     for r, arch in enumerate(archs):
@@ -556,7 +510,6 @@ def plot_fidelity_scatter(study: Study, outdir: Path, formats, dpi):
                     continue
                 drawn = True
 
-                # Colours are resolved per panel, against this pair's rungs.
                 rungs = sorted(np.unique(run.fidelity[ok]))
                 shades = fidelity_shades(method, len(rungs))
                 for fid, colour in zip(rungs, shades):
@@ -579,8 +532,7 @@ def plot_fidelity_scatter(study: Study, outdir: Path, formats, dpi):
                       frameon=True, framealpha=0.9, facecolor="white",
                       edgecolor="#DDDDDD", handletextpad=0.4,
                       borderpad=0.5, labelspacing=0.35)
-            ax.set_title(f"{ARCH_LABEL.get(arch, arch)} \u00b7 {DATASET_LABEL.get(ds, ds)}",
-                         pad=6)
+            ax.set_title(f"{ARCH_LABEL.get(arch, arch)} \u00b7 {DATASET_LABEL.get(ds, ds)}", pad=6)
             ax.set_axisbelow(True)
             ax.margins(x=0.04, y=0.12)
             if c == 0:
@@ -588,18 +540,14 @@ def plot_fidelity_scatter(study: Study, outdir: Path, formats, dpi):
             if r == len(archs) - 1:
                 ax.set_xlabel("Cumulative training epochs")
 
-    fig.suptitle("Trials by fidelity level: where the search budget was spent",
-                 fontsize=13.5)
+    fig.suptitle("Trials by fidelity level: where the search budget was spent", fontsize=13.5)
     return save(fig, outdir / "epochs_per_fidelity", formats, dpi)
 
 
-# --------------------------------------------------------------------------
-# Figure 2 - anytime performance
-# --------------------------------------------------------------------------
+# -----------------figure 2 - anytime performance--------------------
 
-
-def plot_anytime(study: Study, outdir: Path, formats, dpi, restrict: bool,
-                 share_x: bool):
+def plot_anytime(study: Study, outdir: Path, formats, dpi, restrict: bool, share_x: bool):
+    """incumbent val mae vs cumulative epochs, bohb vs rs, with a default-config reference line."""
     if not study.keys:
         sys.exit("Nothing to plot.")
     archs, datasets, fig, axes = panel_grid(study)
@@ -629,9 +577,8 @@ def plot_anytime(study: Study, outdir: Path, formats, dpi, restrict: bool,
                 ax.set_axis_off()
                 continue
 
-            # Each curve simply stops at that method's last evaluation. The
-            # x-axis still spans the larger of the two budgets, so a curve
-            # ending early is visibly a search that ran out of budget first.
+            # each curve stops at that method's last evaluation, so a curve
+            # ending early is visibly a search that ran out of budget first
             xmax = max(x for x, _ in ends.values())
             for method, (x_end, y_end) in ends.items():
                 ax.plot(x_end, y_end, "o", ms=4.5, color=METHOD_COLOR[method], zorder=4)
@@ -669,18 +616,14 @@ def plot_anytime(study: Study, outdir: Path, formats, dpi, restrict: bool,
                Line2D([], [], color=C_RS, lw=2.1, label="Random Search"),
                Line2D([], [], color=C_DEFAULT, lw=1.3, ls="--", label="Default configuration")]
     note = " (incumbent over top-rung evaluations only)" if restrict else ""
-    fig.suptitle("Anytime search performance: BOHB vs Random Search" + note,
-                 fontsize=13.5)
+    fig.suptitle("Anytime search performance: BOHB vs Random Search" + note, fontsize=13.5)
     fig.legend(handles=handles, loc="outside lower center",
                ncol=min(len(handles), 4), fontsize=10.5,
                handletextpad=0.6, columnspacing=1.8)
     return save(fig, outdir / "anytime_performance", formats, dpi)
 
-
-# --------------------------------------------------------------------------
-
-
 def save(fig, stem: Path, formats, dpi) -> list:
+    """write fig to each requested format, return the list of output paths."""
     written = []
     for fmt in formats:
         out = stem.with_suffix(f".{fmt}")
@@ -692,6 +635,7 @@ def save(fig, stem: Path, formats, dpi) -> list:
 
 
 def parse_args(argv=None):
+    """parse cli args (see module docstring's config section)."""
     p = argparse.ArgumentParser(
         description="Fidelity-budget and anytime-performance plots for BOHB vs random search.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -718,12 +662,12 @@ def parse_args(argv=None):
     p.add_argument("--no-display", action="store_true",
                    help="do not render the figures inline in a notebook")
     # %run passes the script path as argv[0] and nothing else, so an empty
-    # argument list is the normal notebook case, not an error.
+    # argument list is the normal notebook case, not an error
     return p.parse_args(argv)
 
 
 def main(argv=None) -> int:
-    """Wrapper so a bad path prints one clear line instead of a traceback."""
+    """wrapper so a bad path prints one clear line instead of a traceback."""
     try:
         return _run(argv)
     except SystemExit as exc:
@@ -734,13 +678,12 @@ def main(argv=None) -> int:
 
 
 def _run(argv=None) -> int:
-    # Printed so a stale copy on Drive is obvious rather than mysterious.
+    """load results, print the budget table, and write both figures."""
     here = Path(__file__).resolve() if "__file__" in globals() else Path("<stdin>")
     print(f"plot.py v{__version__}  ({here})")
 
     args = parse_args(argv)
 
-    # Colab: mount Drive before looking for anything on it.
     mount_drive()
     if args.results_dir is None:
         args.results_dir = default_results_dir()
@@ -784,8 +727,8 @@ def _run(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    # Under %run, a bare SystemExit clutters the cell output, so only the
-    # command-line path exits with a status code.
+    # under %run, a bare SystemExit clutters cell output, so only the
+    # command-line path exits with a status code
     if in_notebook():
         main()
     else:

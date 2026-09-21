@@ -1,9 +1,39 @@
+"""
+bohb.py
+
+entry point script for hyperparameter search.
+
+runs a BOHB (Bayesian Optimization + Hyperband) search over stgnn model
+hyperparameters on a given dataset, using SMAC's MultiFidelityFacade with
+a Hyperband intensifier to allocate more epochs to promising configs.
+supports resuming across runs: trial logging, SMAC's own run state, and
+per-config checkpoints (for resuming a config to a higher epoch budget)
+are all persisted to disk. after the search, retrains and tests the best
+found config for FINAL_EPOCHS and writes results to json/excel.
+
+usage:
+    python bohb.py
+
+config:
+    model_name        - model to search over (stgcn, graphwavenet, agcrn, dcrnn)
+    dataset_name       - dataset to train/eval on (metrla, pemsbay, electricity, pems04, pems08)
+    eta                - successive halving ratio
+    min_budget         - minimum epochs per trial (lowest rung)
+    max_budget         - maximum epochs per trial (highest rung)
+    n_trials           - max number of trials to run
+    max_total_epochs   - stop once cumulative trained epochs reach this
+    final_epochs       - epochs to retrain the best config for
+    crash_cost         - cost assigned to a failed/diverged trial
+    seed               - random seed
+"""
+
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import json
 import time
+import hashlib # used to create id per config, for checkpoint resumption
 from pathlib import Path
 from datetime import datetime
 
@@ -11,13 +41,12 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 
-import hashlib # used to create id per config, for checkpoint resumption
-
 from smac import MultiFidelityFacade, Scenario
 from smac.intensifier.hyperband import Hyperband
 from smac.random_design.probability_design import ProbabilityRandomDesign
 from smac.initial_design.random_design import RandomInitialDesign
 from smac.main.config_selector import ConfigSelector
+from smac.callback import Callback
 from ConfigSpace import Configuration
 
 from utils import results_to_excel
@@ -27,11 +56,9 @@ from dataloader import get_dataloaders
 from tsl.engines import Predictor
 from tsl.metrics.torch import MaskedMAE, MaskedMAPE
 
-from smac.callback import Callback
-
 # ------------------------- settings -------------------------
-MODEL_NAME   = "stgcn"          # or graphwavenet, agcrn
-DATASET_NAME = "electricity"    # or metrla, pemsbay
+MODEL_NAME   = "stgcn"          # options: stgcn, graphwavenet, agcrn, dcrnn
+DATASET_NAME = "electricity"    # options: metrla, pemsbay, electricity, pems04, pems08 
 
 ETA          = 3 # successive halving ratio             
 MIN_BUDGET   = 4                # change based on convergence plots

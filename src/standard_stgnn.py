@@ -1,3 +1,25 @@
+"""
+standard.py
+
+trains a model with fixed, default hyperparameters (no search) across
+multiple datasets, as a baseline to compare search results against.
+
+for each dataset in DATASETS, trains MODEL_NAME for EPOCHS with LR/BATCH_SIZE
+and no model_kwargs overrides, then logs the result (json + excel) after
+every dataset so progress isn't lost on a crash.
+
+usage:
+    python standard.py
+
+config:
+    model_name  - model to train (agcrn, stgcn, graphwavenet, dcrnn)
+    datasets    - list of datasets to train on (metrla, pemsbay, pems04, pems08, electricity)
+    epochs      - training epochs per dataset
+    lr          - learning rate
+    batch_size  - batch size
+    seed        - random seed
+"""
+
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -10,20 +32,21 @@ from datetime import datetime
 from trainer import train
 from utils import results_to_excel
 
-MODEL_NAME  = "agcrn"
-DATASETS    = ["metrla", "pemsbay", "electricity"]
+MODEL_NAME  = "agcrn"           # options: agcrn, stgcn, graphwavenet, dcrnn
+DATASETS    = ["metrla", "pemsbay", "electricity"]  # options: metrla, pemsbay, pems04, pems08, electricity
 EPOCHS      = 30
 SEED        = 42
 LR          = 1e-3
 BATCH_SIZE  = 64
 
-BASE_DIR   = Path('/content/drive/MyDrive/AutoSTGNN')
-DATA_ROOT  = str(BASE_DIR / 'data')
+BASE_DIR    = Path('/content/drive/MyDrive/AutoSTGNN')
+DATA_ROOT   = str(BASE_DIR / 'data')
 RESULTS_DIR = BASE_DIR / 'search_results'
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def run_standard():
+    """train MODEL_NAME with fixed hyperparameters on each dataset in DATASETS."""
     results_log = []
     search_start = time.time()
 
@@ -79,6 +102,7 @@ def run_standard():
 
         results_log.append(trial_record)
 
+        # write out after every dataset so a crash doesn't lose earlier results
         timestamp = datetime.now().strftime('%Y%m%d')
         out_path = RESULTS_DIR / f"{MODEL_NAME}_standard_{timestamp}.json"
         with open(out_path, 'w') as f:

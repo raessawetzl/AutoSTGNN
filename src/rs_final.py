@@ -1,10 +1,21 @@
 """
-rs_final_retrain.py   —   lives in AutoSTGNN/src/
+rs_final.py
 
-Retrains the random-search winner at FINAL_EPOCHS so its test metrics are
-directly comparable to bohb.py's FINAL record.
+retrains the best config found by random search, for a final fair comparison
+against bohb's final retrain.
 
-The winner is selected by best_val_mae (validation), never by test_mae.
+locates the random-search json log for MODEL_NAME/DATASET_NAME, picks the
+trial with the lowest best_val_mae (never selecting on test metrics), and
+retrains that config for FINAL_EPOCHS. writes the result to json + excel.
+
+usage:
+    python rs_final.py
+
+config:
+    model_name    - model that was searched over (stgcn, graphwavenet, agcrn, dcrnn)
+    dataset_name  - dataset used (metrla, pemsbay, pems04, pems08, electricity)
+    final_epochs  - epochs to retrain the winning config for
+    seed          - random seed
 """
 
 import sys
@@ -19,22 +30,20 @@ from datetime import datetime
 from utils import results_to_excel
 from trainer import train
 
-# settings — MUST match bohb.py -------------------------------------------
-MODEL_NAME   = "stgcn"
-DATASET_NAME = "electricity"
+MODEL_NAME   = "stgcn"          # options: stgcn, graphwavenet, agcrn, dcrnn
+DATASET_NAME = "electricity"    # options: metrla, pemsbay, pems04, pems08, electricity
 FINAL_EPOCHS = 30
 SEED         = 42
 
 BASE_DIR     = Path('/content/drive/MyDrive/AutoSTGNN')
 DATA_ROOT    = str(BASE_DIR / 'data')
-RS_DIR       = BASE_DIR / 'Shared Results' / 'Random Search' / 'stgcn' / 'electricity' #update 
+RS_DIR       = BASE_DIR / 'Shared Results' / 'Random Search' / 'stgcn' / 'electricity'
 
 OUT_PATH     = RS_DIR / f"rs_final_{MODEL_NAME}_{DATASET_NAME}_seed{SEED}.json"
-# -------------------------------------------------------------------------
 
 
 def check_paths():
-    """Fails loudly and usefully rather than deep inside training."""
+    """verify RS_DIR and the dataset dir exist, printing debug info before failing."""
     ok = True
 
     if not RS_DIR.is_dir():
@@ -57,7 +66,7 @@ def check_paths():
 
 
 def find_rs_log():
-    """Locates the random-search JSON log, searching subfolders too."""
+    """locate the random-search json log under RS_DIR, most recent if several."""
     candidates = [p for p in RS_DIR.rglob("*.json") if "rs_final" not in p.name]
 
     if not candidates:
@@ -72,12 +81,7 @@ def find_rs_log():
 
 
 def pick_winner(log_path):
-    """Returns the trial with the lowest validation MAE.
-
-    Selection is on best_val_mae only. The random-search script recorded
-    test metrics for every trial, but selecting on those would be choosing
-    the configuration using the test set.
-    """
+    """return the trial with the lowest best_val_mae (never selects on test metrics)."""
     with open(log_path) as f:
         results = json.load(f)
 
@@ -96,6 +100,7 @@ def pick_winner(log_path):
 
 
 def main():
+    """find the rs winner, retrain it for FINAL_EPOCHS, and log the result."""
     check_paths()
 
     log_path = find_rs_log()
@@ -133,7 +138,6 @@ def main():
         k: v for k, v in test_results[0].items() if k.startswith("test_")
     }
 
-    # same shape as bohb.py's FINAL record so the two can be concatenated
     final_record = {
         "trial": "FINAL",
         "algorithm": "random_search",

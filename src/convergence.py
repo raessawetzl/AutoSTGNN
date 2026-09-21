@@ -1,29 +1,30 @@
 """
-Convergence analysis for STGNN models.
+convergence.py
 
-Samples N hyperparameter configurations from a model's search space, trains
-each one, and plots validation/training MAE convergence curves so configs
-can be compared side by side.
+convergence analysis for stgnn models.
 
-Run from a Colab cell:
+samples n hyperparameter configs from a model's search space, trains each
+one, and plots validation/training mae convergence curves so configs can
+be compared side by side. per-config results and sampled configs are also
+saved to json.
 
-    import sys
-    sys.path.append('/content/drive/MyDrive/AutoSTGNN/src')
-
-    from convergence import run_convergence_analysis
-
-    run_convergence_analysis(
-        model_name='stgcn',  # options: agcrn, stgcn, graphwavenet, dcrnn
-        dataset_name='electricity', # options: metrla, pemsbay, pems04, pems08, electricity
-        n_configs=5,
-        max_epochs=15,
-        base_root='/content/drive/MyDrive/AutoSTGNN/data',
-        output_root='/content/drive/MyDrive/AutoSTGNN/convergence_plots',
-    )
-
-Or from the command line:
-
+usage:
     python convergence.py --model stgcn --dataset electricity --n_configs 5
+
+    # or from a colab cell:
+    from convergence import run_convergence_analysis
+    run_convergence_analysis(model_name='stgcn', dataset_name='electricity', n_configs=5, max_epochs=15)
+
+config:
+    model        - model to analyze (agcrn, stgcn, graphwavenet, dcrnn)
+    dataset      - dataset to train/eval on (metrla, pemsbay, pems04, pems08, electricity)
+    n_configs    - number of configs to sample and train
+    epochs       - max training epochs per config
+    window       - input window length
+    horizon      - forecast horizon length
+    base_root    - root directory containing the dataset
+    output_root  - root directory to write configs, results, and plots to
+    seed         - random seed
 """
 
 import sys
