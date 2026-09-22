@@ -1,123 +1,117 @@
+""" 
+Loads the datasets and creates the train, validation and test dataloaders used across the experiments.
+"""
+
 import os
-import numpy as np
-from tsl.datasets import MetrLA, PemsBay, ElectricityBenchmark
+from tsl.datasets import MetrLA, PemsBay, AirQuality, ElectricityBenchmark
+from tsl.datasets.pems_benchmarks import PeMS04, PeMS08
 from tsl.data import SpatioTemporalDataset
 from tsl.data.preprocessing import StandardScaler
 from tsl.data.datamodule import SpatioTemporalDataModule, TemporalSplitter
-from tsl.ops.connectivity import adj_to_edge_index
 
 
+# The available datasets are mapped to their corresponding TSL classes
 DATASET_MAP = {
     'metrla': MetrLA,
     'pemsbay': PemsBay,
+    'airquality': AirQuality,
     'electricity': ElectricityBenchmark,
+    'pems04': PeMS04,
+    'pems08': PeMS08,
 }
 
-
-DATASET_KWARGS = {}
-
-CONN_DEFAULTS = {
-    'electricity': {'k': 6, 'include_self': False, 'layout': 'edge_index'},
-}
-
-DEFAULT_WINDOW = {
-    'electricity': 12,
-}
-
-
-def _knn_connectivity(dataset, root, k=6, include_self=False, **kwargs):
-    cache_path = os.path.join(root, 'correlation_adj.npy')
-
-    if os.path.exists(cache_path):
+def _correlation_connectivity(dataset, top_k=7, corr_threshold=0.9, cache_path=None):
+    """Builds connectivity using the most correlated time series."""
+    import numpy as np
+    # The correlation matrix is cached to avoid recalculating it
+    if cache_path is not None and os.path.exists(cache_path):
         adj = np.load(cache_path)
     else:
-        values = dataset.dataframe().values
-        adj = np.abs(np.corrcoef(values, rowvar=False))
+        adj = np.abs(np.corrcoef(dataset.dataframe().values, rowvar=False))
         adj = np.nan_to_num(adj)
-        np.save(cache_path, adj)
+        np.fill_diagonal(adj, 0.0)
+        if cache_path is not None:
+            np.save(cache_path, adj)
 
-    adj = adj.copy()  
-    n = adj.shape[0]
+    if top_k is not None:
+        # The most correlated series for each node are retained
+        idx = np.argsort(-adj, axis=1)[:, :top_k]
+        keep = np.zeros_like(adj)
+        rows = np.arange(adj.shape[0])[:, None]
+        keep[rows, idx] = adj[rows, idx]
+        adj = keep
+    else:
+        adj[adj < corr_threshold] = 0.0
 
-    if not include_self:
-        np.fill_diagonal(adj, -np.inf)  
+    # The edge weights are normalised across each row
+    row_sums = adj.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1.0
+    adj = adj / row_sums
 
-    if k >= n - 1:
-        raise ValueError(f"k={k} must be smaller than n_nodes-1={n - 1}")
-
-
-    topk_idx = np.argpartition(-adj, kth=k, axis=1)[:, :k]
-
-    knn_mask = np.zeros_like(adj, dtype=bool)
-    rows = np.repeat(np.arange(n), k)
-    cols = topk_idx.ravel()
-    knn_mask[rows, cols] = True
-    knn_mask = knn_mask | knn_mask.T
-
-    if not include_self:
-        np.fill_diagonal(knn_mask, False)
-
-    out_adj = np.where(knn_mask, np.abs(adj), 0.0)
-    if include_self:
-        np.fill_diagonal(out_adj, 1.0)
-
-    return adj_to_edge_index(out_adj)
+    src, dst = np.nonzero(adj)
+    edge_index = np.stack([src, dst], axis=0)
+    edge_weight = adj[src, dst]
+    return edge_index, edge_weight
 
 
 def get_dataloaders(
     dataset_name='metrla',
-    window=None,
+    window=12,
     horizon=12,
     batch_size=64,
     val_len=0.1,
     test_len=0.2,
     conn_threshold=0.1,
+    corr_top_k=6,
     base_root='./data',
-    workers=None,
+    workers = None,
 ):
+    """Returns the train, validation and test dataloaders for a dataset."""
     dataset_name = dataset_name.lower()
-
     if dataset_name not in DATASET_MAP:
         raise ValueError(
             f"Unknown dataset '{dataset_name}'. "
             f"Choose from: {list(DATASET_MAP.keys())}"
         )
 
-    if window is None:
-        window = DEFAULT_WINDOW.get(dataset_name, 12)
-
     root = os.path.join(base_root, dataset_name)
     os.makedirs(root, exist_ok=True)
 
     dataset_cls = DATASET_MAP[dataset_name]
-    extra_kwargs = DATASET_KWARGS.get(dataset_name, {})
-    dataset = dataset_cls(root=root, **extra_kwargs)
+    dataset = dataset_cls(root=root)
 
-    conn_kwargs = CONN_DEFAULTS.get(dataset_name, {
-        'threshold': conn_threshold,
-        'include_self': False,
-        'normalize_axis': 1,
-        'layout': 'edge_index',
-    })
-
-    if dataset.similarity_options is None: # Triggers for electricity
-        connectivity = _knn_connectivity(dataset, root, **conn_kwargs)
+    if dataset_name == 'electricity':
+        connectivity = _correlation_connectivity(
+            dataset,
+            top_k=corr_top_k,
+            cache_path=os.path.join(root, 'corr_matrix.npy'),
+        )
     else:
-        connectivity = dataset.get_connectivity(**conn_kwargs)
+
+        # The traffic graph is constructed from the road network distances
+        connectivity = dataset.get_connectivity(
+            threshold=conn_threshold,
+            include_self=False,
+            normalize_axis=1,
+            layout='edge_index'
+        )
 
     torch_dataset = SpatioTemporalDataset(
         target=dataset.dataframe(),
         connectivity=connectivity,
+        # The mask identifies missing readings that are ignored by the loss
         mask=dataset.mask,
         horizon=horizon,
         window=window,
         stride=1
     )
-    # Electricity nodes normalised by own histrical value, between [0,1] tested but gave poor results
-    scalers = {'target': StandardScaler(axis=(0, 1) if dataset_name != 'electricity' else (0,))}
+
+    # Electricity series are standardised individually, while traffic sensors are standardised together
+    scaler_axis = (0,) if dataset_name == 'electricity' else (0, 1)
+    scalers = {'target': StandardScaler(axis=scaler_axis)}
     splitter = TemporalSplitter(val_len=val_len, test_len=test_len)
 
-    if workers is None:
+    if workers == None:
         workers = max(1, os.cpu_count() - 1)
 
     dm = SpatioTemporalDataModule(
@@ -128,6 +122,7 @@ def get_dataloaders(
         workers=workers,
     )
 
+    # The scaler is fitted using the training data before the dataloaders are created
     dm.setup()
 
     train_loader = dm.train_dataloader()

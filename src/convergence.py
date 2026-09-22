@@ -1,10 +1,18 @@
+"""
+Convergence analysis used to determine the fidelity range for the search experiments.
+Sampled configurations are trained and their MAE is tracked across epochs.
+"""
+
 import sys
 import os
+
+# The project path is added so the module can be imported from Colab
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import json
 import argparse
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -20,20 +28,40 @@ from trainer import (
     build_metrics,
 )
 from dataloader import get_dataloaders
-from utils import to_native
 from tsl.engines import Predictor
 from tsl.metrics.torch import MaskedMAE
 
+# The same seed is used for configuration sampling, weight initialisation and data shuffling for reproducibility
 SEED = 42
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_OUTPUT_ROOT = os.path.join(PROJECT_ROOT, 'convergence_plots')
 
 
+def to_native(value):
+    """Converts NumPy values to standard Python types for JSON output"""
+    if isinstance(value, dict):
+        return {k: to_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [to_native(v) for v in value]
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
+
+
 def sample_n_configs(model_name, n=5, seed=SEED):
+    """Samples configurations from the model's search space."""
     cs = get_search_space(model_name)
     cs.seed(seed)
     configs = cs.sample_configuration(n)
+
+    # A single Configuration is returned when only one configuration is sampled
     if n == 1:
         configs = [configs]
     return [dict(c) for c in configs]
@@ -51,9 +79,12 @@ def train_one_config(
     run_name=None,
     seed=SEED,
 ):
+    """Trains one configuration and returns its results and log path."""
+
     set_seed(seed)
     torch.set_float32_matmul_precision('medium')
 
+    # The learning rate and batch size are separated from the model parameters
     cfg = dict(config)
     lr = float(cfg.pop('lr'))
     batch_size = int(cfg.pop('batch_size'))
@@ -67,12 +98,13 @@ def train_one_config(
         base_root=base_root,
     )
 
+    # The model dimensions are taken directly from a training batch
     sample_batch = next(iter(train_loader))
     n_nodes = sample_batch.input.x.shape[2]
     input_size = sample_batch.input.x.shape[-1]
     output_size = sample_batch.target.y.shape[-1]
 
-
+    # The traffic datasets include time features while Electricity does not 
     exog_size = sample_batch.input.u.shape[-1] if 'u' in sample_batch.input else 0
     model_kwargs = dict(model_kwargs) if model_kwargs else {}
     model_kwargs.setdefault('exog_size', exog_size)
@@ -87,6 +119,7 @@ def train_one_config(
     )
     print(f"  [{run_name}] Training {model_name} with: {used_kwargs}")
 
+    # Missing sensor readings are ignored when calculating MAE
     loss_fn = MaskedMAE()
     metrics = build_metrics()
 
@@ -98,8 +131,9 @@ def train_one_config(
         metrics=metrics,
     )
 
-    callbacks = [EarlyStopping(monitor='val_mae', patience=30, mode='min')]
+    callbacks = [EarlyStopping(monitor='val_mae', patience=5, mode='min')]
 
+    # The metrics for each epoch are saved for the convergence plots
     logger = CSVLogger(save_dir=log_dir, name=run_name)
 
     trainer = pl.Trainer(
@@ -114,6 +148,7 @@ def train_one_config(
     trainer.fit(predictor, train_dataloaders=train_loader, val_dataloaders=val_loader)
     test_results = trainer.test(predictor, dataloaders=test_loader)
 
+    # The test MAE is only used to label the plotted curves
     test_mae = test_results[0].get('test_mae')
     print(f"  [{run_name}] Finished. test_mae={test_mae:.4f}")
 
@@ -138,12 +173,14 @@ def run_convergence_analysis(
     seed=SEED,
 ):
 
+    """Runs the convergence analysis for one model and dataset"""
     model_out_dir = os.path.join(output_root, model_name)
     log_dir = os.path.join(model_out_dir, 'logs')
     os.makedirs(log_dir, exist_ok=True)
 
     configs = sample_n_configs(model_name, n=n_configs, seed=seed)
 
+    # The sampled configurations are saved so the exact runs can be reproduced
     configs_path = os.path.join(model_out_dir, f'{model_name}_configs.json')
     with open(configs_path, 'w') as f:
         json.dump(to_native(configs), f, indent=2)
@@ -175,6 +212,7 @@ def run_convergence_analysis(
         json.dump(to_native(results), f, indent=2)
     print(f"\nAll configs finished. Results saved to {results_path}")
 
+    # Validation MAE is used to assess convergence, while training MAE provides additional context
     plot_convergence(model_name, results, output_dir=model_out_dir, metric='val_mae')
     plot_convergence(model_name, results, output_dir=model_out_dir, metric='train_mae')
 
@@ -182,7 +220,7 @@ def run_convergence_analysis(
 
 
 def plot_convergence(model_name, results, output_dir, metric='val_mae'):
-    """Plots the given metric vs epoch for every config, saves a PNG."""
+    """Plots the given metric vs epoch for every config and saves a PNG"""
     plt.figure(figsize=(10, 6))
 
     for r in results:
@@ -195,7 +233,7 @@ def plot_convergence(model_name, results, output_dir, metric='val_mae'):
         if metric not in df.columns:
             print(f"  WARNING: '{metric}' not found in {csv_path}")
             continue
-
+        # Training and validation metrics are logged on separate rows, so missing values are removed
         df = df[df[metric].notna()]
         if df.empty:
             continue
@@ -216,11 +254,12 @@ def plot_convergence(model_name, results, output_dir, metric='val_mae'):
 
 
 def main():
+    """Handles command-line arguments for the convergence analysis"""
     parser = argparse.ArgumentParser(description="Convergence analysis across N sampled configs")
     parser.add_argument("--model", type=str, required=True,
-                         choices=["graphwavenet","stgcn", "agcrn"])
+                         choices=["graphwavenet", "dcrnn", "stgcn", "agcrn"])
     parser.add_argument("--dataset", type=str, default="metrla",
-                         choices=["metrla", "pemsbay", "electricity"])
+                         choices=["metrla", "pemsbay", "pems04", "pems08", "electricity"])
     parser.add_argument("--n_configs", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--window", type=int, default=12)

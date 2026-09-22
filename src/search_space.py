@@ -1,6 +1,7 @@
 from ConfigSpace import ConfigurationSpace, Categorical, Float, Integer
 
 def get_search_space(model_name):
+    """Defines the hyperparameter search space for each model."""
     model_name = model_name.lower()
 
     cs = ConfigurationSpace(seed=42)
@@ -15,6 +16,12 @@ def get_search_space(model_name):
         cs.add(Integer('n_layers', bounds=(4, 10)))
         cs.add(Integer('emb_size', bounds=(5, 20)))
         cs.add(Categorical('learned_adjacency', [True, False], default=True))
+
+    elif model_name == 'dcrnn':
+        cs.add(Float('dropout', bounds=(0.0, 0.5)))
+        cs.add(Categorical('ff_size', [128, 256, 512]))
+        cs.add(Integer('kernel_size', bounds=(1, 3)))
+        cs.add(Integer('n_layers', bounds=(1, 3)))
 
     elif model_name == 'stgcn':
         cs.add(Float('dropout', bounds=(0.0, 0.5)))
